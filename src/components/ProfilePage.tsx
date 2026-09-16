@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Edit3, GraduationCap, Mail, MapPin, Phone, Shield } from 'lucide-react';
 import { getCompleteUserProfile, updateUserProfile, type UpdateProfileInput } from '../services/userService';
 import { UserSearchInput } from '../components/UserSearchInput';
 import { FACULTIES, COLLEGES, YEARS_OF_STUDY, GENDERS } from '../constants/unimasData';
@@ -17,6 +18,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
   // Loading & Feedback States
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
@@ -59,10 +61,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
               displayName: profile.invitedByName || 'Selected Student',
             });
           }
+
+          const profileComplete = Boolean(
+            profile.displayName &&
+            profile.faculty &&
+            profile.course &&
+            profile.yearOfStudy &&
+            profile.phone &&
+            profile.college
+          );
+
+          // Organizers can use the profile page without completing student-only fields.
+          setIsEditing(currentUser.role !== 'organizer' && !profileComplete);
+        } else {
+          setIsEditing(currentUser.role !== 'organizer');
         }
       } catch (err) {
         console.error('Error fetching profile:', err);
         setMessage({ type: 'error', text: 'Failed to load profile details.' });
+        setIsEditing(currentUser.role !== 'organizer');
       } finally {
         setLoading(false);
       }
@@ -105,6 +122,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
       await updateUserProfile(currentUser.uid, payload);
       onProfileUpdated(displayName.trim());
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      setIsEditing(false);
     } catch (err: any) {
       console.error('Save failed:', err);
       setMessage({
@@ -120,6 +138,77 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!isEditing) {
+    return (
+      <div className="min-h-screen bg-gray-100 px-0 pb-10 sm:px-4 sm:pt-6">
+        <div className="mx-auto max-w-3xl overflow-hidden bg-white shadow-sm sm:rounded-2xl sm:border sm:border-gray-200">
+          <div className="relative h-32 bg-gradient-to-r from-indigo-700 via-indigo-600 to-sky-500 sm:h-44">
+            <div className="absolute -bottom-14 left-5 sm:left-8">
+              {currentUser.photoURL ? (
+                <img
+                  src={currentUser.photoURL}
+                  alt={currentUser.displayName}
+                  className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md sm:h-32 sm:w-32"
+                />
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-indigo-100 text-3xl font-bold text-indigo-700 shadow-md sm:h-32 sm:w-32">
+                  {displayName.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="px-5 pb-7 pt-20 sm:px-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{displayName || currentUser.displayName}</h1>
+                <p className="mt-1 text-sm text-gray-500">CLC Outreach participant</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+                  {faculty && <span className="rounded-full bg-indigo-50 px-3 py-1 font-semibold text-indigo-700">{faculty}</span>}
+                  {yearOfStudy && <span className="rounded-full bg-gray-100 px-3 py-1">Year {yearOfStudy}</span>}
+                  {college && <span className="rounded-full bg-gray-100 px-3 py-1">{college}</span>}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMessage(null);
+                  setIsEditing(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit Profile
+              </button>
+            </div>
+
+            {message && (
+              <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
+                {message.text}
+              </div>
+            )}
+
+            <div className="mt-8 border-t border-gray-100 pt-6">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500">Personal details</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="flex items-center gap-3 text-sm text-gray-700"><Mail className="h-5 w-5 text-gray-400" /><span>{currentUser.email}</span></div>
+                {phone && <div className="flex items-center gap-3 text-sm text-gray-700"><Phone className="h-5 w-5 text-gray-400" /><span>{phone}</span></div>}
+                {course && <div className="flex items-center gap-3 text-sm text-gray-700"><GraduationCap className="h-5 w-5 text-gray-400" /><span>{course}</span></div>}
+                {hometown && <div className="flex items-center gap-3 text-sm text-gray-700"><MapPin className="h-5 w-5 text-gray-400" /><span>{hometown}</span></div>}
+                <div className="flex items-center gap-3 text-sm text-gray-700"><Shield className="h-5 w-5 text-gray-400" /><span className="capitalize">{currentUser.role}</span></div>
+              </div>
+            </div>
+
+            <button type="button" onClick={onBack} className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
