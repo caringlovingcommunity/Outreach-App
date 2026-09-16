@@ -3,11 +3,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
 import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles } from 'lucide-react';
 import { AvailabilityGrid } from './components/AvailabilityGrid';
+import { OrganizerHeatmap } from './components/OrganizerHeatmap';
+import { useAvailability } from './hooks/useAvailability';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const { activeSemester } = useAvailability();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [activeTab, setActiveTab] = useState<'my_availability' | 'heatmap'>('my_availability');
 
   if (!user) return null;
 
@@ -62,6 +66,33 @@ const Dashboard: React.FC = () => {
             <span>Sign Out</span>
           </button>
         </div>
+
+        {isOrganizer && (
+          <div className="mx-auto mt-3 flex max-w-5xl rounded-lg bg-stone-100 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('my_availability')}
+              className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'my_availability'
+                  ? 'bg-white text-stone-900 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              My Availability
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('heatmap')}
+              className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'heatmap'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              Team Heatmap
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
@@ -183,7 +214,11 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <AvailabilityGrid />
+        {activeTab === 'heatmap' && isOrganizer ? (
+          <OrganizerHeatmap activeSemester={activeSemester} />
+        ) : (
+          <AvailabilityGrid />
+        )}
       </main>
     </div>
   );
