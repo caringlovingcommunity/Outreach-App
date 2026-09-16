@@ -44,3 +44,5 @@ firebase-debug.*.log
 
 # AI Tooling / Agent Metadata
 .agents/
+
+skills-lock.json
