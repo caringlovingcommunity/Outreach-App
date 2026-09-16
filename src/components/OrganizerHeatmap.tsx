@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import type { Semester, UserProfile } from '../types';
 import { useOrganizerHeatmap } from '../hooks/useOrganizerHeatmap';
 import { Users, Clock, Loader2, AlertCircle, X, ChevronRight } from 'lucide-react';
+import { Download, Share2, Check } from 'lucide-react';
+import { generateFormattedDaySummary, downloadSemesterCSV } from '../utils/exportUtils';
 
 const DAYS = [
   { id: 'MON', label: 'Mon', fullLabel: 'Monday' },
@@ -31,6 +33,18 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
     dayLabel: string;
     users: UserProfile[];
   } | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const handleCopyText = async () => {
+    const summaryText = generateFormattedDaySummary(activeDay, aggregations);
+    try {
+      await navigator.clipboard.writeText(summaryText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard', err);
+    }
+  };
 
   if (loading) {
     return (
@@ -70,6 +84,36 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
           <span className="text-lg font-extrabold">{totalStudentsSubmitted}</span>
           <span className="text-[9px] uppercase font-bold text-purple-200">Total</span>
         </div>
+      </div>
+
+      {/* Export Toolbar */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleCopyText}
+          className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-[0.98]"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-green-600" />
+              <span className="text-green-600">Copied to Clipboard!</span>
+            </>
+          ) : (
+            <>
+              <Share2 className="w-3.5 h-3.5 text-purple-600" />
+              <span>Share {selectedDayObj.label} Text</span>
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadSemesterCSV(activeSemester, aggregations)}
+          className="py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-[0.98]"
+          title="Download full CSV"
+        >
+          <Download className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Export CSV</span>
+        </button>
       </div>
 
       {/* Horizontal Day Selector */}
