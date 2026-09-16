@@ -40,6 +40,7 @@ export interface PrivateUserProfile {
   invitedByUserId?: string;
   invitedByName?: string; // Denormalized name for display convenience
   updatedAt: any;
+  isProfileComplete: boolean;
 }
 
 /**

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isFirebaseConfigured } from '../services/firebase';
-import { Calendar, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { signInWithGoogle } = useAuth();
@@ -51,17 +51,21 @@ export const Login: React.FC = () => {
         <div id="login-header" className="flex flex-col items-center text-center space-y-3">
           <div
             id="brand-icon-wrapper"
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-stone-900 text-white"
+            className="flex h-20 w-35 items-center justify-center rounded-xl"
           >
-            <Calendar className="h-6 w-6" aria-hidden="true" />
+              <img
+                src="/CLC.png"
+                alt="CLC"
+                className="h-full w-full object-cover"
+              />
           </div>
 
           <div className="space-y-1">
             <h1
               id="login-title"
-              className="text-2xl font-semibold tracking-tight text-stone-900"
+              className="text-2xl font-semibold tracking-tight text-stone-800"
             >
-              CLC Outreach Availability
+              CLC Outreach App
             </h1>
             <p
               id="login-subtitle"
@@ -149,7 +153,7 @@ export const Login: React.FC = () => {
           id="login-footnote"
           className="mt-6 text-center text-xs text-stone-600"
         >
-          Secure authentication for students and outreach coordinators
+          Welcome!! This app is designed for CLC organizers to manage outreach slots. Please sign in with your Google account to continue.
         </p>
       </div>
     </div>

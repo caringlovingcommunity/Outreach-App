@@ -9,19 +9,56 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider, isFirebaseConfigured } from '../services/firebase';
 import type { UserProfile, UserRole } from '../types';
+import type { PublicUserProfile } from '../types/user';
 
 interface AuthContextType {
   user: UserProfile | null;
+  userProfile: PublicUserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
+  const fetchUserProfile = async (uid: string): Promise<PublicUserProfile | null> => {
+    try {
+      const profileSnap = await getDoc(doc(db, 'users_public', uid));
+      if (!profileSnap.exists()) {
+        setUserProfile(null);
+        return null;
+      }
+
+      const profile = profileSnap.data() as PublicUserProfile;
+      setUserProfile(profile);
+      return profile;
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      setUserProfile(null);
+      return null;
+    }
+  };
+
+  const refreshProfile = async (): Promise<void> => {
+    if (!user) return;
+
+    const profile = await fetchUserProfile(user.uid);
+    if (profile) {
+      setUser((previous) => previous ? {
+        ...previous,
+        displayName: profile.displayName,
+        photoURL: profile.photoURL || '',
+        role: profile.role,
+        createdAt: profile.createdAt,
+      } : previous);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -53,17 +90,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               setDoc(publicProfileRef, newPublicProfile),
               setDoc(privateProfileRef, newPrivateProfile),
             ]);
-            setUser({ ...newPublicProfile, email: newPrivateProfile.email });
+            const publicProfile = newPublicProfile as PublicUserProfile;
+            setUserProfile(publicProfile);
+            setUser({
+              uid: publicProfile.uid,
+              email: newPrivateProfile.email,
+              displayName: publicProfile.displayName,
+              photoURL: publicProfile.photoURL || '',
+              role: publicProfile.role,
+              createdAt: publicProfile.createdAt,
+            });
           } else {
             const publicData = publicProfileSnap.data();
+            const publicProfile = publicData as PublicUserProfile;
             const privateData = privateProfileSnap.exists() ? privateProfileSnap.data() : {};
             const existingProfile: UserProfile = {
-              uid: publicData.uid || firebaseUser.uid,
+              uid: publicProfile.uid || firebaseUser.uid,
               email: privateData.email ?? (firebaseUser.email || ''),
-              displayName: publicData.displayName ?? (firebaseUser.displayName || ''),
-              photoURL: publicData.photoURL ?? (firebaseUser.photoURL || ''),
-              role: (publicData.role as UserRole) || 'student',
-              createdAt: publicData.createdAt,
+              displayName: publicProfile.displayName ?? (firebaseUser.displayName || ''),
+              photoURL: publicProfile.photoURL ?? (firebaseUser.photoURL || ''),
+              role: (publicProfile.role as UserRole) || 'student',
+              createdAt: publicProfile.createdAt,
             };
             if (!privateProfileSnap.exists()) {
               await setDoc(privateProfileRef, {
@@ -72,6 +119,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 createdAt: serverTimestamp(),
               });
             }
+            setUserProfile(publicProfile);
             setUser(existingProfile);
           }
         } catch (error) {
@@ -85,9 +133,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             role: 'student',
             createdAt: new Date().toISOString(),
           });
+          setUserProfile(null);
         }
       } else {
         setUser(null);
+        setUserProfile(null);
       }
       setLoading(false);
     });
@@ -126,6 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       await signOut(auth);
       setUser(null);
+      setUserProfile(null);
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
@@ -135,7 +186,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, signInWithGoogle, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

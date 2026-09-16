@@ -66,6 +66,7 @@ export const updateUserProfile = async (
     invitedByUserId: input.invitedByUserId,
     invitedByName: input.invitedByName?.trim(),
     updatedAt: serverTimestamp(),
+    isProfileComplete: true,
   });
 
   // 2. Initialize Firestore Batch Write

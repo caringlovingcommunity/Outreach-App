@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
+import { RequireProfileComplete } from './components/RequireProfileComplete';
 import { SemesterManagerModal } from './components/SemesterManagerModal';
-import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles, Settings, Users } from 'lucide-react';
+import { LogOut, Loader2, User as UserIcon, Shield, Sparkles, Settings, Users } from 'lucide-react';
 import { AvailabilityGrid } from './components/AvailabilityGrid';
 import { OrganizerHeatmap } from './components/OrganizerHeatmap';
 import { SubmissionTracker } from './components/SubmissionTracker';
@@ -12,11 +14,10 @@ import { useAvailability } from './hooks/useAvailability';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { activeSemester } = useAvailability();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'profile'>('dashboard');
-  const [currentUser, setCurrentUser] = useState(user);
   const [activeTab, setActiveTab] = useState<'my_availability' | 'heatmap' | 'student_directory'>('my_availability');
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
 
@@ -34,22 +35,6 @@ const Dashboard: React.FC = () => {
   };
 
   const isOrganizer = user.role === 'organizer';
-  const displayedUser = currentUser ?? user;
-
-  if (currentView === 'profile') {
-    return (
-      <div className="min-h-screen bg-stone-50 text-stone-800 antialiased">
-        <ProfilePage
-          user={displayedUser}
-          onBack={() => setCurrentView('dashboard')}
-          onProfileUpdated={(newName) => {
-            setCurrentUser((prev) => (prev ? { ...prev, displayName: newName } : null));
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       id="dashboard-root"
@@ -62,8 +47,12 @@ const Dashboard: React.FC = () => {
       >
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-stone-900 text-white">
-              <CalendarCheck className="h-5 w-5" aria-hidden="true" />
+            <div className="flex h-20 w-35 items-center justify-center overflow-hidden rounded-lg">
+              <img
+                src="/CLC.png"
+                alt="CLC"
+                className="h-full w-full object-cover"
+              />
             </div>
             <div>
               <h1 className="text-sm font-semibold tracking-tight text-stone-900">
@@ -76,7 +65,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setCurrentView('profile')}
+              onClick={() => navigate('/profile')}
               className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-100 transition-colors"
               title="View Profile"
             >
@@ -153,7 +142,28 @@ const Dashboard: React.FC = () => {
 
       {/* Main Content Area */}
       <main id="main-content" className="mx-auto max-w-5xl px-6 py-10">
-        <div className="grid gap-6 md:grid-cols-3">
+        {isOrganizer && (
+          <div className="mb-8 flex flex-col gap-2 border-b border-stone-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                Organizer Workspace
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-stone-900">
+                Outreach coordination dashboard
+              </h2>
+              <p className="mt-1 text-sm text-stone-600">
+                Review submissions, compare team availability, and manage student records.
+              </p>
+            </div>
+            <div className="text-right text-xs text-stone-500">
+              <span className="font-medium text-stone-700">{user.displayName}</span>
+              <span className="mx-1.5 text-stone-300">•</span>
+              Organizer access
+            </div>
+          </div>
+        )}
+
+        {!isOrganizer && <div className="grid gap-6 md:grid-cols-3">
           {/* Welcome User Profile Card */}
           <div
             id="user-profile-card"
@@ -188,7 +198,7 @@ const Dashboard: React.FC = () => {
                     id="user-display-name"
                     className="text-xl font-semibold text-stone-900"
                   >
-                    {displayedUser.displayName || 'Outreach Member'}
+                    {user.displayName || 'Outreach Member'}
                   </h2>
 
                   {/* Role Badge */}
@@ -209,12 +219,12 @@ const Dashboard: React.FC = () => {
                   id="user-email-address"
                   className="text-sm text-stone-600 font-mono"
                 >
-                  {displayedUser.email}
+                  {user.email}
                 </p>
 
                 <p className="text-xs text-stone-600 pt-1">
                   User ID:{' '}
-                  <span className="font-mono text-stone-600">{displayedUser.uid}</span>
+                  <span className="font-mono text-stone-600">{user.uid}</span>
                 </p>
               </div>
             </div>
@@ -268,7 +278,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>}
 
         {isOrganizer && (
           <SubmissionTracker
@@ -295,6 +305,25 @@ const Dashboard: React.FC = () => {
           }}
         />
       )}
+    </div>
+  );
+};
+
+const ProfileRoute: React.FC = () => {
+  const { user, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-800 antialiased">
+      <ProfilePage
+        user={user}
+        onBack={() => navigate('/')}
+        onProfileUpdated={() => {
+          void refreshProfile().finally(() => navigate('/'));
+        }}
+      />
     </div>
   );
 };
@@ -329,13 +358,34 @@ const AppContent: React.FC = () => {
     return <Login />;
   }
 
-  return <Dashboard />;
+  return <Navigate to="/" replace />;
 };
 
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<AppContent />} />
+          <Route
+            path="/profile"
+            element={
+              <RequireProfileComplete>
+                <ProfileRoute />
+              </RequireProfileComplete>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <RequireProfileComplete>
+                <Dashboard />
+              </RequireProfileComplete>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </AuthProvider>
   );
 }
