@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
 import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles } from 'lucide-react';
+import { AvailabilityGrid } from './components/AvailabilityGrid';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -181,6 +182,8 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <AvailabilityGrid />
       </main>
     </div>
   );
