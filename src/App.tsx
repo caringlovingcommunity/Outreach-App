@@ -5,6 +5,7 @@ import { SemesterManagerModal } from './components/SemesterManagerModal';
 import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles, Settings } from 'lucide-react';
 import { AvailabilityGrid } from './components/AvailabilityGrid';
 import { OrganizerHeatmap } from './components/OrganizerHeatmap';
+import { SubmissionTracker } from './components/SubmissionTracker';
 import { useAvailability } from './hooks/useAvailability';
 
 const Dashboard: React.FC = () => {
@@ -228,6 +229,13 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {isOrganizer && (
+          <SubmissionTracker
+            activeSemesterId={activeSemester?.semesterId}
+            activeSemesterName={activeSemester?.name}
+          />
+        )}
 
         {activeTab === 'heatmap' && isOrganizer ? (
           <OrganizerHeatmap activeSemester={activeSemester} />
