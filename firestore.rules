@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+	match /databases/{database}/documents {
+		function signedIn() {
+			return request.auth != null;
+		}
+
+		function isOrganizer() {
+			return signedIn() &&
+				get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer';
+		}
+
+		function validUserProfile() {
+			return request.resource.data.keys().hasAll([
+					'uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt'
+				]) &&
+				request.resource.data.uid == request.auth.uid &&
+				request.resource.data.email is string &&
+				request.resource.data.displayName is string &&
+				request.resource.data.photoURL is string &&
+				request.resource.data.role in ['student', 'organizer'];
+		}
+
+		function validAvailability() {
+			return request.resource.data.keys().hasAll([
+					'userId', 'semesterId', 'slots', 'updatedAt'
+				]) &&
+				request.resource.data.userId == request.auth.uid &&
+				request.resource.data.semesterId is string &&
+				request.resource.data.slots is list &&
+				request.resource.data.slots.size() <= 21;
+		}
+
+		match /users/{userId} {
+			allow read: if signedIn() && (request.auth.uid == userId || isOrganizer());
+			allow create: if signedIn() && request.auth.uid == userId &&
+				request.resource.data.role == 'student' && validUserProfile();
+			allow update: if signedIn() && request.auth.uid == userId &&
+				validUserProfile() &&
+				request.resource.data.role == resource.data.role &&
+				request.resource.data.uid == resource.data.uid;
+			allow delete: if false;
+		}
+
+		match /semesters/{semesterId} {
+			allow read: if signedIn();
+			allow create, update, delete: if isOrganizer();
+		}
+
+		match /availabilities/{availabilityId} {
+			allow read: if signedIn() &&
+				(isOrganizer() || availabilityId.matches('^' + request.auth.uid + '_.*'));
+			allow create: if signedIn() && validAvailability() &&
+				availabilityId == request.auth.uid + '_' + request.resource.data.semesterId;
+			allow update: if signedIn() && validAvailability() &&
+				resource.data.userId == request.auth.uid &&
+				request.resource.data.userId == resource.data.userId &&
+				request.resource.data.semesterId == resource.data.semesterId &&
+				availabilityId == request.auth.uid + '_' + request.resource.data.semesterId;
+			allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+		}
+	}
+}

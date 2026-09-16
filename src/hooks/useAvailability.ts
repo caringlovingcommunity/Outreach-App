@@ -13,6 +13,26 @@ import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import type { Semester, Availability } from '../types';
 
+export const fetchUserAvailability = async (
+  userId: string,
+  semesterId: string
+): Promise<string[]> => {
+  try {
+    const availabilityRef = doc(db, 'availabilities', `${userId}_${semesterId}`);
+    const availabilitySnap = await getDoc(availabilityRef);
+
+    if (availabilitySnap.exists()) {
+      const data = availabilitySnap.data() as Availability;
+      return data.slots || [];
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    throw error;
+  }
+};
+
 export const useAvailability = () => {
   const { user } = useAuth();
   const [activeSemester, setActiveSemester] = useState<Semester | null>(null);
@@ -60,14 +80,10 @@ export const useAvailability = () => {
           setActiveSemester(semesterData);
         }
 
-        // Fetch existing availability for this user + active semester
-        const availabilityId = `${user.uid}_${semesterData.semesterId}`;
-        const availabilityRef = doc(db, 'availabilities', availabilityId);
-        const availabilitySnap = await getDoc(availabilityRef);
-
-        if (availabilitySnap.exists() && isMounted) {
-          const data = availabilitySnap.data() as Availability;
-          setSelectedSlots(data.slots || []);
+        // Missing availability documents are a normal empty state for students.
+        const slots = await fetchUserAvailability(user.uid, semesterData.semesterId);
+        if (isMounted) {
+          setSelectedSlots(slots);
         }
       } catch (err: any) {
         console.error('Error fetching availability data:', err);
