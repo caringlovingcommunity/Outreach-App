@@ -8,17 +8,17 @@ interface SubmissionTrackerProps {
 
 export const SubmissionTracker: React.FC<SubmissionTrackerProps> = ({ activeSemesterId, activeSemesterName }) => {
   const { submittedStudents, pendingStudents, totalStudents, submissionRate, loading, error } = useSubmissionTracker(activeSemesterId);
-  const [copied, setCopied] = useState(false);
+//   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted'>('pending');
 
-  const handleCopyEmails = () => {
-    const emails = pendingStudents.map(s => s.email).filter(Boolean).join(', ');
-    if (emails) {
-      navigator.clipboard.writeText(emails);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
+//   const handleCopyEmails = () => {
+//     const emails = pendingStudents.map(s => s.email).filter(Boolean).join(', ');
+//     if (emails) {
+//       navigator.clipboard.writeText(emails);
+//       setCopied(true);
+//       setTimeout(() => setCopied(false), 2500);
+//     }
+//   };
 
   if (loading) return <div className="p-6 text-center text-gray-500">Calculating submission statistics...</div>;
   if (error) return <div className="p-4 bg-red-50 text-red-700 rounded-md">{error}</div>;

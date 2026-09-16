@@ -6,6 +6,7 @@ import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles, Set
 import { AvailabilityGrid } from './components/AvailabilityGrid';
 import { OrganizerHeatmap } from './components/OrganizerHeatmap';
 import { SubmissionTracker } from './components/SubmissionTracker';
+import { ProfilePage } from './components/ProfilePage';
 import { useAvailability } from './hooks/useAvailability';
 
 const Dashboard: React.FC = () => {
@@ -13,6 +14,8 @@ const Dashboard: React.FC = () => {
   const { activeSemester } = useAvailability();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'profile'>('dashboard');
+  const [currentUser, setCurrentUser] = useState(user);
   const [activeTab, setActiveTab] = useState<'my_availability' | 'heatmap'>('my_availability');
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
 
@@ -30,6 +33,21 @@ const Dashboard: React.FC = () => {
   };
 
   const isOrganizer = user.role === 'organizer';
+  const displayedUser = currentUser ?? user;
+
+  if (currentView === 'profile') {
+    return (
+      <div className="min-h-screen bg-stone-50 text-stone-800 antialiased">
+        <ProfilePage
+          user={displayedUser}
+          onBack={() => setCurrentView('dashboard')}
+          onProfileUpdated={(newName) => {
+            setCurrentUser((prev) => (prev ? { ...prev, displayName: newName } : null));
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -55,6 +73,15 @@ const Dashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentView('profile')}
+              className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="View Profile"
+            >
+              <UserIcon className="w-4 h-4" />
+            </button>
+
             {isOrganizer && (
               <button
                 type="button"
@@ -148,7 +175,7 @@ const Dashboard: React.FC = () => {
                     id="user-display-name"
                     className="text-xl font-semibold text-stone-900"
                   >
-                    {user.displayName || 'Outreach Member'}
+                    {displayedUser.displayName || 'Outreach Member'}
                   </h2>
 
                   {/* Role Badge */}
@@ -169,12 +196,12 @@ const Dashboard: React.FC = () => {
                   id="user-email-address"
                   className="text-sm text-stone-600 font-mono"
                 >
-                  {user.email}
+                  {displayedUser.email}
                 </p>
 
                 <p className="text-xs text-stone-600 pt-1">
                   User ID:{' '}
-                  <span className="font-mono text-stone-600">{user.uid}</span>
+                  <span className="font-mono text-stone-600">{displayedUser.uid}</span>
                 </p>
               </div>
             </div>

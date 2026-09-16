@@ -31,11 +31,24 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
         setError(null);
 
         // 1. Fetch all student profiles for mapping names/photos
-        const usersRef = collection(db, 'users');
+        const usersRef = query(collection(db, 'users_public'), where('role', '==', 'student'));
         const usersSnap = await getDocs(usersRef);
+        const privateUsersSnap = await getDocs(collection(db, 'users_private'));
+        const privateUserMap = new Map<string, { email?: string }>();
+        privateUsersSnap.docs.forEach((doc) => {
+          privateUserMap.set(doc.id, doc.data() as { email?: string });
+        });
         const userMap = new Map<string, UserProfile>();
         usersSnap.docs.forEach((doc) => {
-          userMap.set(doc.id, doc.data() as UserProfile);
+          const publicData = doc.data();
+          userMap.set(doc.id, {
+            uid: doc.id,
+            displayName: publicData.displayName || 'Unknown Student',
+            email: privateUserMap.get(doc.id)?.email || '',
+            photoURL: publicData.photoURL || '',
+            role: 'student',
+            createdAt: publicData.createdAt,
+          });
         });
 
         // 2. Fetch all availability submissions for the active semester

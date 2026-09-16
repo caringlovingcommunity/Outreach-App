@@ -27,31 +27,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         try {
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userDocRef);
+          const publicProfileRef = doc(db, 'users_public', firebaseUser.uid);
+          const privateProfileRef = doc(db, 'users_private', firebaseUser.uid);
+          const publicProfileSnap = await getDoc(publicProfileRef);
+          const privateProfileSnap = await getDoc(privateProfileRef);
 
-          if (!userSnap.exists()) {
-            const newProfile: UserProfile = {
+          if (!publicProfileSnap.exists()) {
+            const legacyProfileSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+            const legacyData = legacyProfileSnap.exists() ? legacyProfileSnap.data() : {};
+            const role = legacyData.role === 'organizer' ? 'organizer' : 'student';
+            const newPublicProfile = {
               uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'User',
-              photoURL: firebaseUser.photoURL || '',
-              role: 'student',
+              displayName: legacyData.displayName || firebaseUser.displayName || 'User',
+              photoURL: legacyData.photoURL || firebaseUser.photoURL || '',
+              role: role as UserRole,
+              createdAt: serverTimestamp(),
+            };
+            const newPrivateProfile = {
+              uid: firebaseUser.uid,
+              email: legacyData.email || firebaseUser.email || '',
               createdAt: serverTimestamp(),
             };
 
-            await setDoc(userDocRef, newProfile);
-            setUser(newProfile);
+            await Promise.all([
+              setDoc(publicProfileRef, newPublicProfile),
+              setDoc(privateProfileRef, newPrivateProfile),
+            ]);
+            setUser({ ...newPublicProfile, email: newPrivateProfile.email });
           } else {
-            const data = userSnap.data();
+            const publicData = publicProfileSnap.data();
+            const privateData = privateProfileSnap.exists() ? privateProfileSnap.data() : {};
             const existingProfile: UserProfile = {
-              uid: data.uid || firebaseUser.uid,
-              email: data.email ?? (firebaseUser.email || ''),
-              displayName: data.displayName ?? (firebaseUser.displayName || ''),
-              photoURL: data.photoURL ?? (firebaseUser.photoURL || ''),
-              role: (data.role as UserRole) || 'student',
-              createdAt: data.createdAt,
+              uid: publicData.uid || firebaseUser.uid,
+              email: privateData.email ?? (firebaseUser.email || ''),
+              displayName: publicData.displayName ?? (firebaseUser.displayName || ''),
+              photoURL: publicData.photoURL ?? (firebaseUser.photoURL || ''),
+              role: (publicData.role as UserRole) || 'student',
+              createdAt: publicData.createdAt,
             };
+            if (!privateProfileSnap.exists()) {
+              await setDoc(privateProfileRef, {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                createdAt: serverTimestamp(),
+              });
+            }
             setUser(existingProfile);
           }
         } catch (error) {

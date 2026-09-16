@@ -36,12 +36,16 @@ export function useSubmissionTracker(activeSemesterId: string | undefined): Subm
 
       try {
         // 1. Fetch all students
-        const usersQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+        const usersQuery = query(collection(db, 'users_public'), where('role', '==', 'student'));
         const usersSnap = await getDocs(usersQuery);
+        const privateUsersSnap = await getDocs(collection(db, 'users_private'));
+        const privateUsers = new Map(
+          privateUsersSnap.docs.map((studentDoc) => [studentDoc.id, studentDoc.data().email || ''])
+        );
         const allStudents: StudentProfile[] = usersSnap.docs.map(doc => ({
           uid: doc.id,
           displayName: doc.data().displayName || 'Unknown Student',
-          email: doc.data().email || '',
+          email: privateUsers.get(doc.id) || '',
           photoURL: doc.data().photoURL,
         }));
 
