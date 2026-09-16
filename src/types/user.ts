@@ -31,6 +31,7 @@ export interface PublicUserProfile {
  */
 export interface PrivateUserProfile {
   uid: string;
+  email?: string;
   phone?: string;
   gender?: 'Male' | 'Female';
   race?: string;

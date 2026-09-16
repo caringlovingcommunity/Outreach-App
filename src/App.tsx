@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
 import { SemesterManagerModal } from './components/SemesterManagerModal';
-import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles, Settings } from 'lucide-react';
+import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles, Settings, Users } from 'lucide-react';
 import { AvailabilityGrid } from './components/AvailabilityGrid';
 import { OrganizerHeatmap } from './components/OrganizerHeatmap';
 import { SubmissionTracker } from './components/SubmissionTracker';
+import { OrganizerStudentList } from './components/OrganizerStudentList';
 import { ProfilePage } from './components/ProfilePage';
 import { useAvailability } from './hooks/useAvailability';
 
@@ -16,7 +17,7 @@ const Dashboard: React.FC = () => {
   const [imageError, setImageError] = useState(false);
   const [currentView, setCurrentView] = useState<'dashboard' | 'profile'>('dashboard');
   const [currentUser, setCurrentUser] = useState(user);
-  const [activeTab, setActiveTab] = useState<'my_availability' | 'heatmap'>('my_availability');
+  const [activeTab, setActiveTab] = useState<'my_availability' | 'heatmap' | 'student_directory'>('my_availability');
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
 
   if (!user) return null;
@@ -133,6 +134,18 @@ const Dashboard: React.FC = () => {
               }`}
             >
               Team Heatmap
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('student_directory')}
+              className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'student_directory'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Users className="mr-1 inline h-3.5 w-3.5" />
+              Directory
             </button>
           </div>
         )}
@@ -264,7 +277,9 @@ const Dashboard: React.FC = () => {
           />
         )}
 
-        {activeTab === 'heatmap' && isOrganizer ? (
+        {activeTab === 'student_directory' && isOrganizer ? (
+          <OrganizerStudentList />
+        ) : activeTab === 'heatmap' && isOrganizer ? (
           <OrganizerHeatmap activeSemester={activeSemester} />
         ) : (
           <AvailabilityGrid />
