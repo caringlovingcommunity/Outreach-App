@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
-import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles } from 'lucide-react';
+import { SemesterManagerModal } from './components/SemesterManagerModal';
+import { LogOut, Loader2, User as UserIcon, CalendarCheck, Shield, Sparkles, Settings } from 'lucide-react';
 import { AvailabilityGrid } from './components/AvailabilityGrid';
 import { OrganizerHeatmap } from './components/OrganizerHeatmap';
 import { useAvailability } from './hooks/useAvailability';
@@ -12,6 +13,7 @@ const Dashboard: React.FC = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [activeTab, setActiveTab] = useState<'my_availability' | 'heatmap'>('my_availability');
+  const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
 
   if (!user) return null;
 
@@ -51,20 +53,33 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <button
-            id="signout-header-button"
-            type="button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition-colors focus:outline-none focus:ring-2 focus:ring-stone-900 cursor-pointer disabled:opacity-50"
-          >
-            {isLoggingOut ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <LogOut className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-2">
+            {isOrganizer && (
+              <button
+                type="button"
+                onClick={() => setIsSemesterModalOpen(true)}
+                className="p-1.5 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Manage Semesters"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
             )}
-            <span>Sign Out</span>
-          </button>
+
+            <button
+              id="signout-header-button"
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition-colors focus:outline-none focus:ring-2 focus:ring-stone-900 cursor-pointer disabled:opacity-50"
+            >
+              {isLoggingOut ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <LogOut className="h-3.5 w-3.5" />
+              )}
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
 
         {isOrganizer && (
@@ -220,6 +235,16 @@ const Dashboard: React.FC = () => {
           <AvailabilityGrid />
         )}
       </main>
+
+      {isOrganizer && (
+        <SemesterManagerModal
+          isOpen={isSemesterModalOpen}
+          onClose={() => setIsSemesterModalOpen(false)}
+          onSemesterChanged={() => {
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -59,8 +59,6 @@ export const downloadSemesterCSV = (
   activeSemester: Semester | null,
   aggregations: Record<string, SlotAggregation>
 ) => {
-  const semesterName = activeSemester ? activeSemester.name : 'Active Semester';
-  
   // Build CSV Header
   const headers = ['Day', 'Time Window', 'Slot Key', 'Student Name', 'Student Email'];
   const rows: string[][] = [];
