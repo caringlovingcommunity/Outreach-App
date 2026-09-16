@@ -24,3 +24,23 @@ dist-ssr
 *.sw?
 .env.local
 .env*.local
+
+# Dependencies
+node_modules/
+
+# Production Build Output
+dist/
+dist-ssr/
+*.local
+
+# Firebase Build & CLI Files
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# IDE & OS Files
+.DS_Store
+.vscode/
+
+# AI Tooling / Agent Metadata
+.agents/
