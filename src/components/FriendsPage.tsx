@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { MoreVertical, Search, Users } from 'lucide-react';
 import { getTeamFriends } from '../services/friendsService';
 import type { PublicUserProfile } from '../types/user';
+import { MySheepsPage } from './MySheepsPage';
 
 type FriendsView = 'my_friends' | 'team_friends' | 'dashboard';
 
@@ -86,7 +87,9 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId }) => {
         ))}
       </div>
 
-      {activeView === 'team_friends' ? (
+      {activeView === 'my_friends' ? (
+        <MySheepsPage />
+      ) : activeView === 'team_friends' ? (
         <>
           <label className="relative mt-5 block">
             <span className="sr-only">Search friends</span>

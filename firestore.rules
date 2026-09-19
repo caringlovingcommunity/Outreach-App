@@ -79,5 +79,51 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow update: if false;
     }
+
+    function validContact(data) {
+      return data.keys().hasOnly([
+          'createdById', 'createdByName', 'name', 'phoneNumber', 'gender',
+          'photoUrl', 'gospelStatus', 'responseStatuses', 'followUpProgress',
+          'remarks', 'createdAt', 'updatedAt'
+        ]) &&
+        data.createdById is string && data.createdByName is string &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        data.gender in ['male', 'female'] &&
+        data.gospelStatus in ['not_started', 'gospel_conversation', 'gospel_presentation'] &&
+        data.responseStatuses is list && data.responseStatuses.size() <= 4 &&
+        data.responseStatuses.hasOnly([
+          'pray_receive_christ', 'already_christian', 'not_ready', 'say_yes_follow_up'
+        ]) &&
+        data.followUpProgress is map &&
+        data.followUpProgress.keys().hasOnly(['jof1_1', 'jof1_2', 'jof1_3']) &&
+        data.followUpProgress.jof1_1 is bool &&
+        data.followUpProgress.jof1_2 is bool &&
+        data.followUpProgress.jof1_3 is bool &&
+        (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 40)) &&
+        (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 2000)) &&
+        (!('photoUrl' in data) || data.photoUrl == null) &&
+        (data.gospelStatus != 'not_started' || (data.responseStatuses.size() == 0 &&
+          !data.followUpProgress.jof1_1 && !data.followUpProgress.jof1_2 && !data.followUpProgress.jof1_3)) &&
+        (!data.responseStatuses.hasAny(['not_ready']) ||
+          (data.responseStatuses.size() == 1 && !data.followUpProgress.jof1_1 &&
+            !data.followUpProgress.jof1_2 && !data.followUpProgress.jof1_3)) &&
+        (!data.followUpProgress.jof1_1 && !data.followUpProgress.jof1_2 && !data.followUpProgress.jof1_3 ||
+          data.responseStatuses.hasAny(['say_yes_follow_up']));
+    }
+
+    match /contacts/{contactId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.createdById == request.auth.uid &&
+        validContact(request.resource.data);
+      allow update: if isAuthenticated() &&
+        (isOwner(resource.data.createdById) || isOrganizer()) &&
+        request.resource.data.createdById == resource.data.createdById &&
+        request.resource.data.createdByName == resource.data.createdByName &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        validContact(request.resource.data);
+      allow delete: if isAuthenticated() &&
+        (isOwner(resource.data.createdById) || isOrganizer());
+    }
   }
 }
