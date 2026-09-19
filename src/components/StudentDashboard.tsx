@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CalendarDays, LogOut, Loader2, User as UserIcon } from 'lucide-react';
+import { Calendar, CalendarDays, Loader2, Users } from 'lucide-react';
 import { TopNav, BottomNav } from './NavigationBar';
+import { NavigationDrawer } from './NavigationDrawer';
 import { AvailabilityGrid } from './AvailabilityGrid';
 import { StudentEvents } from './StudentEvents';
 import { ProfilePage } from './ProfilePage';
+import { FriendsPage } from './FriendsPage';
 import { useAuth } from '../context/AuthContext';
 import { getCompleteUserProfile } from '../services/userService';
 import type { UserProfile } from '../types';
@@ -13,11 +15,12 @@ interface StudentDashboardProps {
   logout: () => Promise<void>;
 }
 
-type StudentTab = 'my_availability' | 'events' | 'profile';
+type StudentTab = 'my_availability' | 'events' | 'friends' | 'profile';
 
 const TABS: { id: StudentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'my_availability', label: 'My Availability', icon: Calendar },
   { id: 'events', label: 'Events', icon: CalendarDays },
+  { id: 'friends', label: 'Friends', icon: Users },
 ];
 
 const isProfileComplete = (profile: Awaited<ReturnType<typeof getCompleteUserProfile>>) => Boolean(
@@ -35,6 +38,7 @@ const isProfileComplete = (profile: Awaited<ReturnType<typeof getCompleteUserPro
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout }) => {
   const { refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<StudentTab>('my_availability');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileStatus, setProfileStatus] = useState<'loading' | 'incomplete' | 'complete'>('loading');
 
@@ -101,27 +105,25 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
           </div>
 
           <div className="flex items-center gap-2">
-            {profileStatus === 'complete' && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('profile')}
-                className={`app-icon-button ${
-                  activeTab === 'profile' ? 'bg-primary-soft text-primary' : ''
-                }`}
-                title="View Profile"
-              >
-                <UserIcon className="h-4 w-4" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="app-button-secondary min-h-9 px-3.5 py-1.5 text-xs"
-            >
-              {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
-              <span>Sign Out</span>
-            </button>
+            <NavigationDrawer
+              isOpen={isDrawerOpen}
+              onOpenChange={setIsDrawerOpen}
+              tabs={TABS.map((tab) => ({
+                id: tab.id,
+                label: tab.label,
+                icon: tab.icon,
+                isActive: activeTab === tab.id,
+                onClick: () => setActiveTab(tab.id),
+              }))}
+              profile={{
+                photoURL: user.photoURL,
+                displayName: user.displayName,
+                email: user.email,
+                onClick: () => setActiveTab('profile'),
+              }}
+              onSignOut={handleLogout}
+              isLoggingOut={isLoggingOut}
+            />
           </div>
         </div>
 
@@ -141,6 +143,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
         {activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={handleProfileUpdated} />
+        ) : activeTab === 'friends' ? (
+          <FriendsPage currentUserId={user.uid} />
         ) : activeTab === 'events' ? (
           <StudentEvents user={user} />
         ) : (
@@ -158,6 +162,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
             onClick: () => setActiveTab(tab.id),
           }))}
           profile={{ photoURL: user.photoURL, isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }}
+          isDrawerOpen={isDrawerOpen}
         />
       )}
     </div>

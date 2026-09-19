@@ -173,8 +173,8 @@ export const AvailabilityGrid: React.FC = () => {
         })}
       </div>
 
-      {/* Sticky Bottom Save Action Bar */}
-      <div className="sticky bottom-20 z-30 -mx-1 mt-2 flex justify-center border-t border-border bg-surface p-4 shadow-[0_-4px_16px_rgb(31_41_55_/_0.08)] sm:bottom-0">
+{/* Bottom Save Action Bar */}
+      <div className="-mx-1 mt-6 flex justify-center border-t border-border bg-surface p-4">
         <div className="w-full max-w-md">
           <button
             type="button"

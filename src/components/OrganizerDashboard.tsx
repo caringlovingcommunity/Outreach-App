@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { BarChart3, CalendarDays, LogOut, Loader2, PartyPopper, Settings, UserCircle, Users } from 'lucide-react';
+import { BarChart3, CalendarDays, PartyPopper, Settings, UserCircle, Users } from 'lucide-react';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
+import { NavigationDrawer } from './NavigationDrawer';
 import { AvailabilityGrid } from './AvailabilityGrid';
 import { OrganizerHeatmap } from './OrganizerHeatmap';
 import { OrganizerEvents } from './OrganizerEvents';
 import { ProfilePage } from './ProfilePage';
 import { SubmissionTracker } from './SubmissionTracker';
 import { OrganizerStudentList } from './OrganizerStudentList';
+import { FriendsPage } from './FriendsPage';
 import { useAvailability } from '../hooks/useAvailability';
 import type { UserProfile } from '../types';
 
@@ -16,7 +18,7 @@ interface OrganizerDashboardProps {
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'profile';
+type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'friends' | 'profile';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'my_availability', label: 'My Availability', icon: CalendarDays },
@@ -24,11 +26,13 @@ const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ class
   { id: 'events', label: 'Events', icon: PartyPopper },
   { id: 'student_directory', label: 'Directory', icon: Users },
   { id: 'submission_progress', label: 'Progress', icon: BarChart3 },
+  { id: 'friends', label: 'Friends', icon: Users },
 ];
 
 export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, logout }) => {
   const { activeSemester } = useAvailability();
   const [activeTab, setActiveTab] = useState<OrganizerTab>('my_availability');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -56,6 +60,30 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
           </div>
 
           <div className="flex items-center gap-2">
+            <NavigationDrawer
+              isOpen={isDrawerOpen}
+              onOpenChange={setIsDrawerOpen}
+              tabs={TABS.map((tab) => ({
+                id: tab.id,
+                label: tab.label,
+                icon: tab.icon,
+                isActive: activeTab === tab.id,
+                onClick: () => setActiveTab(tab.id),
+              }))}
+              profile={{
+                photoURL: user.photoURL,
+                displayName: user.displayName,
+                email: user.email,
+                onClick: () => setActiveTab('profile'),
+              }}
+              onSignOut={handleLogout}
+              isLoggingOut={isLoggingOut}
+              extraAction={{
+                label: 'Manage Semesters',
+                icon: Settings,
+                onClick: () => setIsSemesterModalOpen(true),
+              }}
+            />
             <div className="hidden items-center gap-2 border-r border-border pr-3 sm:flex">
               <UserCircle className="h-4 w-4 text-primary" />
               <span className="max-w-32 truncate text-xs font-medium text-text" title={user.displayName}>
@@ -64,30 +92,11 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
             </div>
             <button
               type="button"
-              onClick={() => setActiveTab('profile')}
-              className={`app-icon-button ${
-                activeTab === 'profile' ? 'bg-primary-soft text-primary' : ''
-              }`}
-              title="View Profile"
-            >
-              <UserCircle className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
               onClick={() => setIsSemesterModalOpen(true)}
               className="app-icon-button"
               title="Manage Semesters"
             >
               <Settings className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="app-button-secondary min-h-9 px-3.5 py-1.5 text-xs"
-            >
-              {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
-              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -106,6 +115,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
         {activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={() => setActiveTab('my_availability')} />
+        ) : activeTab === 'friends' ? (
+          <FriendsPage currentUserId={user.uid} />
         ) : activeTab === 'submission_progress' ? (
           <SubmissionTracker activeSemesterId={activeSemester?.semesterId} activeSemesterName={activeSemester?.name} />
         ) : activeTab === 'student_directory' ? (
@@ -134,6 +145,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
           onClick: () => setActiveTab(tab.id),
         }))}
         profile={{ photoURL: user.photoURL, isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }}
+        isDrawerOpen={isDrawerOpen}
       />
     </div>
   );

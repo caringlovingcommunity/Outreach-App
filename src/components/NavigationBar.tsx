@@ -40,11 +40,14 @@ export const TopNav: React.FC<TopNavProps> = ({ tabs }) => (
 interface BottomNavProps {
   tabs: NavTab[];
   profile: NavProfile;
+  isDrawerOpen?: boolean;
 }
 
 // Mobile-only fixed nav bar, always ending with a Profile entry.
-export const BottomNav: React.FC<BottomNavProps> = ({ tabs, profile }) => (
-  <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgb(31_41_55_/_0.1)] sm:hidden">
+export const BottomNav: React.FC<BottomNavProps> = ({ tabs, profile, isDrawerOpen = false }) => (
+  <nav className={`fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgb(31_41_55_/_0.1)] transition-transform duration-200 sm:hidden ${
+    isDrawerOpen ? 'translate-x-[min(21rem,calc(100vw-2rem))]' : 'translate-x-0'
+  }`}>
     <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}>
       {tabs.map((tab) => {
         const Icon = tab.icon;
