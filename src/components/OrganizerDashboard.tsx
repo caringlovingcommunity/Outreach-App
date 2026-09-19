@@ -42,31 +42,31 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
   };
 
   return (
-    <div className="min-h-screen w-full bg-stone-50 text-stone-800 antialiased">
-      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 px-6 py-3.5 backdrop-blur-md">
+    <div className="app-shell">
+      <header className="app-header">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-20 w-35 items-center justify-center overflow-hidden rounded-lg">
               <img src="/CLC.png" alt="CLC" className="h-full w-full object-cover" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold tracking-tight text-stone-900">CLC Outreach Availability</h1>
-              <p className="text-xs text-stone-600">Organizer Workspace</p>
+              <h1 className="text-sm font-bold text-text">CLC Outreach Availability</h1>
+              <p className="text-xs text-muted">Organizer Workspace</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 border-r border-stone-200 pr-3 sm:flex">
-              <UserCircle className="h-4 w-4 text-indigo-600" />
-              <span className="max-w-32 truncate text-xs font-medium text-stone-700" title={user.displayName}>
+            <div className="hidden items-center gap-2 border-r border-border pr-3 sm:flex">
+              <UserCircle className="h-4 w-4 text-primary" />
+              <span className="max-w-32 truncate text-xs font-medium text-text" title={user.displayName}>
                 {user.displayName}
               </span>
             </div>
             <button
               type="button"
               onClick={() => setActiveTab('profile')}
-              className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-indigo-600 ${
-                activeTab === 'profile' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500'
+              className={`app-icon-button ${
+                activeTab === 'profile' ? 'bg-primary-soft text-primary' : ''
               }`}
               title="View Profile"
             >
@@ -75,7 +75,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
             <button
               type="button"
               onClick={() => setIsSemesterModalOpen(true)}
-              className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-indigo-600"
+              className="app-icon-button"
               title="Manage Semesters"
             >
               <Settings className="h-4 w-4" />
@@ -84,7 +84,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
               type="button"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3.5 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-50"
+              className="app-button-secondary min-h-9 px-3.5 py-1.5 text-xs"
             >
               {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
               <span>Sign Out</span>
@@ -103,7 +103,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
         />
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10 pb-40 sm:pb-10">
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
         {activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={() => setActiveTab('my_availability')} />
         ) : activeTab === 'submission_progress' ? (

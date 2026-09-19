@@ -8,74 +8,55 @@ interface SubmissionTrackerProps {
 
 export const SubmissionTracker: React.FC<SubmissionTrackerProps> = ({ activeSemesterId, activeSemesterName }) => {
   const { submittedStudents, pendingStudents, totalStudents, submissionRate, loading, error } = useSubmissionTracker(activeSemesterId);
-//   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted'>('pending');
 
-//   const handleCopyEmails = () => {
-//     const emails = pendingStudents.map(s => s.email).filter(Boolean).join(', ');
-//     if (emails) {
-//       navigator.clipboard.writeText(emails);
-//       setCopied(true);
-//       setTimeout(() => setCopied(false), 2500);
-//     }
-//   };
-
-  if (loading) return <div className="p-6 text-center text-gray-500">Calculating submission statistics...</div>;
-  if (error) return <div className="p-4 bg-red-50 text-red-700 rounded-md">{error}</div>;
+  if (loading) return <div className="app-loading-state text-muted">Calculating submission statistics...</div>;
+  if (error) return <div className="app-alert-error">{error}</div>;
 
   return (
-    <div className="bg-white rounded-lg shadow border border-gray-200 p-6 mb-8 mt-4">
+    <div className="app-panel mt-2 mb-8 p-5 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-gray-200 gap-4">
+      <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Submission Progress</h2>
-          <p className="text-sm text-gray-500">{activeSemesterName || 'Current Semester'}</p>
+          <h2 className="text-lg font-bold text-text">Submission Progress</h2>
+          <p className="text-sm text-muted">{activeSemesterName || 'Current Semester'}</p>
         </div>
-        
-        {/* {pendingStudents.length > 0 && (
-          <button
-            onClick={handleCopyEmails}
-            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            {copied ? '✓ Emails Copied!' : '📋 Copy Pending Emails'}
-          </button>
-        )} */}
       </div>
 
       {/* Progress Bar */}
       <div className="my-6">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-semibold text-gray-700">
+          <span className="text-sm font-semibold text-text">
             {submittedStudents.length} of {totalStudents} Students Submitted
           </span>
-          <span className="text-sm font-bold text-indigo-600">{submissionRate}%</span>
+          <span className="text-sm font-bold text-primary">{submissionRate}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+        <div className="h-3 w-full overflow-hidden rounded-full bg-surface-muted">
           <div
-            className="bg-indigo-600 h-3 rounded-full transition-all duration-500"
+            className="h-3 rounded-full bg-primary transition-all duration-500"
             style={{ width: `${submissionRate}%` }}
           />
         </div>
       </div>
 
       {/* Sub-tabs */}
-      <div className="flex border-b border-gray-200 mb-4">
+      <div className="mb-4 flex border-b border-border">
         <button
           onClick={() => setActiveTab('pending')}
-          className={`py-2 px-4 border-b-2 font-medium text-sm ${
+          className={`border-b-2 px-4 py-2 text-sm font-semibold ${
             activeTab === 'pending'
-              ? 'border-amber-500 text-amber-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-warning text-warning'
+              : 'border-transparent text-muted hover:text-text'
           }`}
         >
           Pending ({pendingStudents.length})
         </button>
         <button
           onClick={() => setActiveTab('submitted')}
-          className={`py-2 px-4 border-b-2 font-medium text-sm ${
+          className={`border-b-2 px-4 py-2 text-sm font-semibold ${
             activeTab === 'submitted'
-              ? 'border-emerald-500 text-emerald-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-success text-success'
+              : 'border-transparent text-muted hover:text-text'
           }`}
         >
           Submitted ({submittedStudents.length})
@@ -83,9 +64,9 @@ export const SubmissionTracker: React.FC<SubmissionTrackerProps> = ({ activeSeme
       </div>
 
       {/* Student List */}
-      <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+      <div className="max-h-64 divide-y divide-border overflow-y-auto">
         {(activeTab === 'pending' ? pendingStudents : submittedStudents).length === 0 ? (
-          <p className="py-4 text-center text-sm text-gray-500">No students in this list.</p>
+          <p className="py-4 text-center text-sm text-muted">No students in this list.</p>
         ) : (
           (activeTab === 'pending' ? pendingStudents : submittedStudents).map((student) => (
             <div key={student.uid} className="py-3 flex items-center justify-between">
@@ -93,17 +74,17 @@ export const SubmissionTracker: React.FC<SubmissionTrackerProps> = ({ activeSeme
                 {student.photoURL ? (
                   <img src={student.photoURL} alt={student.displayName} className="w-8 h-8 rounded-full" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
                     {student.displayName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{student.displayName}</p>
-                  <p className="text-xs text-gray-500">{student.email}</p>
+                  <p className="text-sm font-medium text-text">{student.displayName}</p>
+                  <p className="text-xs text-muted">{student.email}</p>
                 </div>
               </div>
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                activeTab === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                activeTab === 'pending' ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success'
               }`}>
                 {activeTab === 'pending' ? 'Pending' : 'Submitted'}
               </span>

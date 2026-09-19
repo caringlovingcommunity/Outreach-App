@@ -80,23 +80,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
 
   if (profileStatus === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-50">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="app-shell flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-stone-50 text-stone-800 antialiased">
-      <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 px-6 py-3.5 backdrop-blur-md">
+    <div className="app-shell">
+      <header className="app-header">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-20 w-35 items-center justify-center overflow-hidden rounded-lg">
               <img src="/CLC.png" alt="CLC" className="h-full w-full object-cover" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold tracking-tight text-stone-900">CLC Outreach Availability</h1>
-              <p className="text-xs text-stone-600">Slot Coordination</p>
+              <h1 className="text-sm font-bold text-text">CLC Outreach Availability</h1>
+              <p className="text-xs text-muted">Slot Coordination</p>
             </div>
           </div>
 
@@ -105,8 +105,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
               <button
                 type="button"
                 onClick={() => setActiveTab('profile')}
-                className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 hover:text-indigo-600 ${
-                  activeTab === 'profile' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500'
+                className={`app-icon-button ${
+                  activeTab === 'profile' ? 'bg-primary-soft text-primary' : ''
                 }`}
                 title="View Profile"
               >
@@ -117,7 +117,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
               type="button"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3.5 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-50"
+              className="app-button-secondary min-h-9 px-3.5 py-1.5 text-xs"
             >
               {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
               <span>Sign Out</span>
@@ -138,7 +138,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
         )}
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10 pb-40 sm:pb-10">
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
         {activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={handleProfileUpdated} />
         ) : activeTab === 'events' ? (

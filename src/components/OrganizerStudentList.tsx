@@ -79,9 +79,9 @@ export const OrganizerStudentList: React.FC = () => {
   // Access Control Guard
   if (user?.role !== 'organizer') {
     return (
-      <div className="max-w-xl mx-auto mt-12 p-6 bg-red-50 border border-red-200 rounded-xl text-center">
-        <h2 className="text-lg font-bold text-red-800">Access Restricted</h2>
-        <p className="text-sm text-red-600 mt-2">
+      <div className="app-alert-error mx-auto mt-12 max-w-xl flex-col p-6 text-center">
+        <h2 className="text-lg font-bold">Access Restricted</h2>
+        <p className="mt-2 text-sm">
           You must have an <strong>Organizer</strong> account to view the student directory.
         </p>
       </div>
@@ -89,24 +89,24 @@ export const OrganizerStudentList: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="mx-auto max-w-6xl py-2">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Student Directory</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-text">Student Directory</h1>
+          <p className="mt-1 text-sm text-muted">
             View registered outreach students, academic details, and contact numbers.
           </p>
         </div>
-        <div className="text-sm font-medium bg-blue-50 text-blue-800 px-3 py-1.5 rounded-lg border border-blue-200 self-start md:self-auto">
+        <div className="self-start rounded-app-md border border-primary-muted bg-primary-soft px-3 py-1.5 text-sm font-semibold text-primary md:self-auto">
           Total Registered: {students.length}
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="app-panel mb-6 grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
         <div className="md:col-span-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+          <label className="app-label uppercase tracking-wider">
             Search Student
           </label>
           <input
@@ -114,18 +114,18 @@ export const OrganizerStudentList: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name or course..."
-            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+            className="app-input"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+          <label className="app-label uppercase tracking-wider">
             Filter by Faculty
           </label>
           <select
             value={selectedFaculty}
             onChange={(e) => setSelectedFaculty(e.target.value)}
-            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+            className="app-input"
           >
             <option value="">All Faculties</option>
             {FACULTIES.map((f) => (
@@ -140,21 +140,21 @@ export const OrganizerStudentList: React.FC = () => {
       {/* Main Content Area */}
       {loading ? (
         <div className="flex justify-center items-center min-h-[40vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
         </div>
       ) : error ? (
-        <div className="p-4 bg-red-50 text-red-800 border border-red-200 rounded-lg text-sm">
+        <div className="app-alert-error">
           {error}
         </div>
       ) : filteredStudents.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center border border-gray-200">
-          <p className="text-gray-500 text-sm">No students found matching your criteria.</p>
+        <div className="app-empty-state p-12">
+          <p className="text-sm text-muted">No students found matching your criteria.</p>
         </div>
       ) : (
         <>
           <div className="space-y-3 md:hidden">
             {filteredStudents.map((student) => (
-              <article key={student.uid} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <article key={student.uid} className="app-panel p-4">
                 <div className="flex items-start gap-3">
                   {student.photoURL ? (
                     <img
@@ -163,40 +163,40 @@ export const OrganizerStudentList: React.FC = () => {
                       className="h-11 w-11 shrink-0 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
                       {student.displayName.charAt(0)}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <h2 className="truncate font-semibold text-gray-900">{student.displayName}</h2>
-                    <p className="mt-0.5 truncate text-xs text-gray-500">{student.course || 'Course not provided'}</p>
+                    <h2 className="truncate font-semibold text-text">{student.displayName}</h2>
+                    <p className="mt-0.5 truncate text-xs text-muted">{student.course || 'Course not provided'}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleOpenDetail(student.uid)}
-                    className="shrink-0 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 active:bg-blue-100"
+                    className="app-button-text min-h-10 shrink-0 px-3 text-xs"
                   >
                     Details
                   </button>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-gray-50 px-3 py-2">
-                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Faculty</span>
-                    <span className="mt-0.5 block truncate font-medium text-gray-700">{student.faculty || 'Not provided'}</span>
+                  <div className="rounded-app-sm bg-surface-muted px-3 py-2">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-subtle">Faculty</span>
+                    <span className="mt-0.5 block truncate font-medium text-text">{student.faculty || 'Not provided'}</span>
                   </div>
-                  <div className="rounded-lg bg-gray-50 px-3 py-2">
-                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-gray-400">Year</span>
-                    <span className="mt-0.5 block font-medium text-gray-700">{student.yearOfStudy ? `Year ${student.yearOfStudy}` : 'Not provided'}</span>
+                  <div className="rounded-app-sm bg-surface-muted px-3 py-2">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-subtle">Year</span>
+                    <span className="mt-0.5 block font-medium text-text">{student.yearOfStudy ? `Year ${student.yearOfStudy}` : 'Not provided'}</span>
                   </div>
                 </div>
               </article>
             ))}
           </div>
 
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm md:block">
+          <div className="app-panel hidden overflow-hidden md:block">
             <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-600">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
+            <table className="w-full text-left text-sm text-muted">
+              <thead className="border-b border-border bg-surface-muted text-xs uppercase text-muted">
                 <tr>
                   <th className="px-6 py-3">Student</th>
                   <th className="px-6 py-3">Faculty</th>
@@ -205,9 +205,9 @@ export const OrganizerStudentList: React.FC = () => {
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {filteredStudents.map((student) => (
-                  <tr key={student.uid} className="hover:bg-gray-50 transition-colors">
+                  <tr key={student.uid} className="transition-colors hover:bg-primary-soft">
                     <td className="px-6 py-4 flex items-center gap-3">
                       {student.photoURL ? (
                         <img
@@ -216,11 +216,11 @@ export const OrganizerStudentList: React.FC = () => {
                           className="w-8 h-8 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
                           {student.displayName.charAt(0)}
                         </div>
                       )}
-                      <span className="font-medium text-gray-900">{student.displayName}</span>
+                      <span className="font-medium text-text">{student.displayName}</span>
                     </td>
                     <td className="px-6 py-4 font-mono text-xs">{student.faculty || '—'}</td>
                     <td className="px-6 py-4">{student.course || '—'}</td>
@@ -229,7 +229,7 @@ export const OrganizerStudentList: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenDetail(student.uid)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium rounded-md text-xs transition-colors"
+                        className="app-button-text min-h-9 px-3 py-1.5 text-xs"
                       >
                         View Details
                       </button>
@@ -245,19 +245,19 @@ export const OrganizerStudentList: React.FC = () => {
 
       {/* STUDENT DETAIL MODAL */}
       {(modalLoading || selectedStudent || modalError) && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-xl">
+        <div className="app-modal-backdrop items-end justify-center">
+          <div className="w-full max-w-lg overflow-y-auto rounded-t-app-lg border border-border bg-surface shadow-app-lg sm:rounded-app-lg">
             
             {/* Modal Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="font-bold text-gray-900">Student Contact Details</h3>
+            <div className="flex items-center justify-between border-b border-border bg-surface-muted px-6 py-4">
+              <h3 className="font-bold text-text">Student Contact Details</h3>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedStudent(null);
                   setModalError(null);
                 }}
-                className="text-gray-400 hover:text-gray-600 font-bold text-lg"
+                className="app-icon-button size-9 text-lg"
               >
                 &times;
               </button>
@@ -267,15 +267,15 @@ export const OrganizerStudentList: React.FC = () => {
             <div className="p-5 sm:p-6">
               {modalLoading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                 </div>
               ) : modalError ? (
-                <div className="p-4 bg-red-50 text-red-800 rounded-lg text-sm">{modalError}</div>
+                <div className="app-alert-error">{modalError}</div>
               ) : selectedStudent ? (
                 <div className="space-y-4 text-sm">
                   
                   {/* Public Identity Summary */}
-                  <div className="flex items-center gap-3 pb-4 border-b">
+                  <div className="flex items-center gap-3 border-b border-border pb-4">
                     {selectedStudent.photoURL ? (
                       <img
                         src={selectedStudent.photoURL}
@@ -283,15 +283,15 @@ export const OrganizerStudentList: React.FC = () => {
                         className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary">
                         {selectedStudent.displayName.charAt(0)}
                       </div>
                     )}
                     <div>
-                      <h4 className="font-bold text-gray-900 text-base">
+                      <h4 className="text-base font-bold text-text">
                         {selectedStudent.displayName}
                       </h4>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted">
                         {selectedStudent.faculty || 'No Faculty'} • {selectedStudent.course || 'No Course'}
                       </p>
                     </div>
@@ -300,16 +300,16 @@ export const OrganizerStudentList: React.FC = () => {
                   {/* Private Details Grid */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <span className="block text-xs font-semibold text-gray-400 uppercase">
+                      <span className="block text-xs font-semibold uppercase text-subtle">
                         Email Address
                       </span>
-                      <span className="text-gray-800 font-medium break-all">
+                      <span className="break-all font-medium text-text">
                         {selectedStudent.privateDetails?.email || '—'}
                       </span>
                     </div>
 
                     <div>
-                      <span className="block text-xs font-semibold text-gray-400 uppercase">
+                      <span className="block text-xs font-semibold uppercase text-subtle">
                         Phone / WhatsApp
                       </span>
                       {selectedStudent.privateDetails?.phone ? (
@@ -317,38 +317,38 @@ export const OrganizerStudentList: React.FC = () => {
                           href={`https://wa.me/${selectedStudent.privateDetails.phone.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline font-medium"
+                          className="font-medium text-primary hover:underline"
                         >
                           {selectedStudent.privateDetails.phone} ↗
                         </a>
                       ) : (
-                        <span className="text-gray-500">—</span>
+                        <span className="text-muted">—</span>
                       )}
                     </div>
 
                     <div>
-                      <span className="block text-xs font-semibold text-gray-400 uppercase">
+                      <span className="block text-xs font-semibold uppercase text-subtle">
                         Residential College
                       </span>
-                      <span className="text-gray-800 font-medium">
+                      <span className="font-medium text-text">
                         {selectedStudent.privateDetails?.college || '—'}
                       </span>
                     </div>
 
                     <div>
-                      <span className="block text-xs font-semibold text-gray-400 uppercase">
+                      <span className="block text-xs font-semibold uppercase text-subtle">
                         Gender
                       </span>
-                      <span className="text-gray-800 font-medium">
+                      <span className="font-medium text-text">
                         {selectedStudent.privateDetails?.gender || '—'}
                       </span>
                     </div>
 
                     <div>
-                      <span className="block text-xs font-semibold text-gray-400 uppercase">
+                      <span className="block text-xs font-semibold uppercase text-subtle">
                         Hometown / Race
                       </span>
-                      <span className="text-gray-800 font-medium">
+                      <span className="font-medium text-text">
                         {[selectedStudent.privateDetails?.hometown, selectedStudent.privateDetails?.race]
                           .filter(Boolean)
                           .join(' / ') || '—'}
@@ -356,10 +356,10 @@ export const OrganizerStudentList: React.FC = () => {
                     </div>
 
                     <div>
-                      <span className="block text-xs font-semibold text-gray-400 uppercase">
+                      <span className="block text-xs font-semibold uppercase text-subtle">
                         Invited By
                       </span>
-                      <span className="text-gray-800 font-medium">
+                      <span className="font-medium text-text">
                         {selectedStudent.privateDetails?.invitedByName || '—'}
                       </span>
                     </div>
@@ -370,14 +370,14 @@ export const OrganizerStudentList: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-end">
+            <div className="flex justify-end border-t border-border bg-surface-muted px-6 py-3">
               <button
                 type="button"
                 onClick={() => {
                   setSelectedStudent(null);
                   setModalError(null);
                 }}
-                className="px-4 py-2 bg-gray-200 text-gray-800 text-xs font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+                className="app-button-secondary min-h-9 px-4 py-2 text-xs"
               >
                 Close
               </button>

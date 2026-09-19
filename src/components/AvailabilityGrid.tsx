@@ -34,20 +34,20 @@ export const AvailabilityGrid: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[300px]">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
-        <p className="text-sm text-gray-500 font-medium">Loading availability...</p>
+      <div className="app-loading-state">
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted">Loading availability...</p>
       </div>
     );
   }
 
   if (!activeSemester) {
     return (
-      <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 flex items-start gap-3">
+      <div className="app-alert-warning p-5">
         <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
         <div>
           <h3 className="font-semibold text-sm">No Active Semester</h3>
-          <p className="text-xs text-amber-700 mt-1">
+          <p className="mt-1 text-xs">
             There is currently no active semester configured. Please contact an outreach organizer.
           </p>
         </div>
@@ -58,36 +58,36 @@ export const AvailabilityGrid: React.FC = () => {
   const selectedDayObj = DAYS.find((d) => d.id === activeDay) || DAYS[0];
 
   return (
-    <div className="flex flex-col space-y-4 pb-20 mt-5">
+    <div className="mt-2 flex flex-col space-y-4 pb-20">
       {/* Semester Banner Card */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-5 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-1.5 text-indigo-200 text-xs font-semibold tracking-wider uppercase">
+      <div className="rounded-app-lg bg-primary p-5 text-white shadow-app-sm">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/75">
           <Calendar className="w-3.5 h-3.5" />
           Active Term
         </div>
         <h2 className="text-lg font-bold mt-1">{activeSemester.name}</h2>
-        <p className="text-xs text-indigo-100 mt-1">
+        <p className="mt-1 text-xs text-white/80">
           Tap days and time blocks below to set your free slots.
         </p>
       </div>
 
       {/* Notifications */}
       {error && (
-        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+        <div className="app-alert-error text-xs">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
       )}
 
       {saveSuccess && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs flex items-center gap-2">
+        <div className="app-alert-success text-xs">
           <CheckCircle className="w-4 h-4 flex-shrink-0" />
           Availability successfully saved!
         </div>
       )}
 
       {/* Horizontal Day Selector Tabs */}
-      <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm">
+      <div className="app-panel p-1.5">
         <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
           {DAYS.map((day) => {
             const isCurrent = activeDay === day.id;
@@ -101,17 +101,17 @@ export const AvailabilityGrid: React.FC = () => {
                 key={day.id}
                 type="button"
                 onClick={() => setActiveDay(day.id)}
-                className={`flex-1 min-w-[44px] py-2.5 rounded-xl flex flex-col items-center justify-center transition-all ${
+                className={`flex min-w-11 flex-1 flex-col items-center justify-center rounded-app-md py-2.5 transition-colors ${
                   isCurrent
-                    ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100 font-medium'
+                    ? 'bg-primary font-bold text-white shadow-app-sm'
+                    : 'font-medium text-muted hover:bg-primary-soft hover:text-primary'
                 }`}
               >
                 <span className="text-xs">{day.label}</span>
                 {hasSlotsOnDay && (
                   <span
                     className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                      isCurrent ? 'bg-white' : 'bg-indigo-600'
+                      isCurrent ? 'bg-white' : 'bg-primary'
                     }`}
                   />
                 )}
@@ -124,10 +124,10 @@ export const AvailabilityGrid: React.FC = () => {
       {/* Time Slot Selection Cards for Active Day */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted">
             {selectedDayObj.fullLabel} Slots
           </span>
-          <span className="text-xs text-gray-400">Tap block to toggle</span>
+          <span className="text-xs text-subtle">Tap block to toggle</span>
         </div>
 
         {TIME_SLOTS.map((slot) => {
@@ -139,31 +139,31 @@ export const AvailabilityGrid: React.FC = () => {
               key={slot.id}
               type="button"
               onClick={() => toggleSlot(slotKey)}
-              className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between active:scale-[0.98] ${
+              className={`flex w-full items-center justify-between rounded-app-lg border p-4 text-left transition-colors active:scale-[0.99] ${
                 isSelected
-                  ? 'bg-indigo-50 border-indigo-500 text-indigo-950 shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                  ? 'border-primary bg-primary-soft text-text shadow-app-sm'
+                  : 'border-border bg-surface text-text hover:border-primary-muted'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    isSelected ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'
+                    isSelected ? 'bg-primary text-white' : 'bg-surface-muted text-muted'
                   }`}
                 >
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="font-bold text-sm">{slot.label}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{slot.time}</div>
+                  <div className="mt-0.5 text-xs text-muted">{slot.time}</div>
                 </div>
               </div>
 
               <div
                 className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
                   isSelected
-                    ? 'bg-indigo-600 border-indigo-600 text-white'
-                    : 'border-gray-300 bg-white'
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border bg-surface'
                 }`}
               >
                 {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -174,13 +174,13 @@ export const AvailabilityGrid: React.FC = () => {
       </div>
 
       {/* Sticky Bottom Save Action Bar */}
-      <div className="sticky bottom-20 z-30 -mx-1 mt-2 flex justify-center border-t border-gray-200 bg-white/95 p-4 backdrop-blur-md sm:bottom-0">
+      <div className="sticky bottom-20 z-30 -mx-1 mt-2 flex justify-center border-t border-border bg-surface p-4 shadow-[0_-4px_16px_rgb(31_41_55_/_0.08)] sm:bottom-0">
         <div className="w-full max-w-md">
           <button
             type="button"
             onClick={saveAvailability}
             disabled={saving}
-            className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+            className="app-button-primary w-full py-3.5 shadow-app-md"
           >
             {saving ? (
               <>

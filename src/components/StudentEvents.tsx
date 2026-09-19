@@ -95,49 +95,49 @@ export const StudentEvents: React.FC<Props> = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[300px]">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
-        <p className="text-sm text-gray-500 font-medium">Loading events...</p>
+      <div className="app-loading-state">
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted">Loading events...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col space-y-4 pb-20 mt-5">
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-5 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-1.5 text-indigo-200 text-xs font-semibold tracking-wider uppercase">
+    <div className="mt-2 flex flex-col space-y-4 pb-20">
+      <div className="rounded-app-lg bg-primary p-5 text-white shadow-app-sm">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/75">
           <CalendarDays className="w-3.5 h-3.5" />
           Outreach Events
         </div>
         <h2 className="text-lg font-bold mt-1">Join a time slot</h2>
-        <p className="text-xs text-indigo-100 mt-1">Tap a slot below to sign up. Tap again to leave.</p>
+        <p className="mt-1 text-xs text-white/80">Tap a slot below to sign up. Tap again to leave.</p>
       </div>
 
       {error && (
-        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+        <div className="app-alert-error text-xs">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
       )}
 
       {events.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
-          <CalendarDays className="mx-auto h-8 w-8 text-stone-400" />
-          <p className="mt-3 text-sm font-medium text-stone-700">No events yet.</p>
-          <p className="mt-1 text-xs text-stone-500">Check back later for outreach events to join.</p>
+        <div className="app-empty-state border-dashed">
+          <CalendarDays className="mx-auto h-8 w-8 text-subtle" />
+          <p className="mt-3 text-sm font-medium text-text">No events yet.</p>
+          <p className="mt-1 text-xs text-muted">Check back later for outreach events to join.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {events.map((event) => (
-            <div key={event.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h3 className="text-base font-bold text-stone-900">{event.name}</h3>
+            <div key={event.id} className="app-panel p-5">
+              <h3 className="text-base font-bold text-text">{event.name}</h3>
               <div className="mt-3 space-y-3">
                 {event.dates.map((dateEntry, dateIndex) => (
                   <div key={dateIndex}>
-                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">{dateEntry.date}</div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-muted">{dateEntry.date}</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {dateEntry.timeSlots.length === 0 ? (
-                        <span className="text-xs text-gray-400">No time slots configured</span>
+                        <span className="text-xs text-subtle">No time slots configured</span>
                       ) : (
                         dateEntry.timeSlots.map((slot, slotIndex) => {
                           const key = signupId(user.uid, event.id, dateIndex, slotIndex);
@@ -150,10 +150,10 @@ export const StudentEvents: React.FC<Props> = ({ user }) => {
                               type="button"
                               disabled={isPending}
                               onClick={() => toggleSlot(event, dateIndex, dateEntry, slotIndex, slot)}
-                              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all active:scale-[0.98] disabled:opacity-60 ${
+                              className={`inline-flex min-h-10 items-center gap-1.5 rounded-app-md border px-3 py-2 text-xs font-semibold transition-colors active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 ${
                                 isJoined
-                                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                  : 'bg-white border-gray-200 text-gray-700 hover:border-indigo-300'
+                                  ? 'border-primary bg-primary text-white shadow-app-sm'
+                                  : 'border-border bg-surface text-text hover:border-primary-muted hover:bg-primary-soft'
                               }`}
                             >
                               {isPending ? (

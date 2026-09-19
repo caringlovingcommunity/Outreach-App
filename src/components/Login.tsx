@@ -41,11 +41,11 @@ export const Login: React.FC = () => {
   return (
     <div
       id="login-page-container"
-      className="min-h-screen w-full flex items-center justify-center bg-stone-50 px-4 py-12"
+      className="app-shell flex items-center justify-center px-4 py-12"
     >
       <div
         id="login-card"
-        className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm border border-stone-200"
+        className="w-full max-w-md rounded-app-lg border border-border bg-surface p-8 shadow-app-md"
       >
         {/* Header Section */}
         <div id="login-header" className="flex flex-col items-center text-center space-y-3">
@@ -63,13 +63,13 @@ export const Login: React.FC = () => {
           <div className="space-y-1">
             <h1
               id="login-title"
-              className="text-2xl font-semibold tracking-tight text-stone-800"
+              className="text-2xl font-bold text-text"
             >
               CLC Outreach App
             </h1>
             <p
               id="login-subtitle"
-              className="text-sm text-stone-600 max-w-xs"
+              className="max-w-xs text-sm text-muted"
             >
               Manage and coordinate outreach slots
             </p>
@@ -80,12 +80,12 @@ export const Login: React.FC = () => {
         {!isFirebaseConfigured && (
           <div
             id="firebase-config-notice"
-            className="mt-6 rounded-lg bg-amber-50 p-3.5 border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900"
+            className="app-alert-warning mt-6 text-xs"
           >
-            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <span className="font-medium">Firebase configuration needed:</span> Set your{' '}
-              <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px]">
+              <code className="rounded bg-surface px-1 py-0.5 font-mono text-[11px]">
                 VITE_FIREBASE_*
               </code>{' '}
               environment variables in your project settings to complete Google sign-in.
@@ -97,9 +97,9 @@ export const Login: React.FC = () => {
         {errorMessage && (
           <div
             id="login-error-banner"
-            className="mt-4 rounded-lg bg-red-50 p-3.5 border border-red-200 flex items-start gap-2 text-xs text-red-700"
+            className="app-alert-error mt-4 text-xs"
           >
-            <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span className="leading-relaxed">{errorMessage}</span>
           </div>
         )}
@@ -111,11 +111,11 @@ export const Login: React.FC = () => {
             type="button"
             onClick={handleSignIn}
             disabled={isSubmitting}
-            className="group relative flex w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 py-3 text-sm font-medium text-stone-800 transition-all hover:bg-stone-50 hover:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-xs cursor-pointer"
+            className="app-button-secondary group relative w-full gap-3 px-5 py-3"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-stone-700" />
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <span>Signing in...</span>
               </>
             ) : (
@@ -151,7 +151,7 @@ export const Login: React.FC = () => {
         {/* Footer Note */}
         <p
           id="login-footnote"
-          className="mt-6 text-center text-xs text-stone-600"
+          className="mt-6 text-center text-xs text-muted"
         >
           Welcome!! This app is designed for CLC organizers to manage outreach slots. Please sign in with your Google account to continue.
         </p>

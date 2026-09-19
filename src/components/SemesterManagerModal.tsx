@@ -35,25 +35,25 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-3xl p-5 space-y-4 max-h-[85vh] flex flex-col shadow-xl animate-in fade-in zoom-in-95 duration-150">
+    <div className="app-modal-backdrop items-center justify-center">
+      <div className="app-modal max-h-[85vh] space-y-4">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-bold text-gray-900 text-base">Semester Management</h3>
+            <Calendar className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold text-text">Semester Management</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+            className="app-icon-button size-9"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+          <div className="app-alert-error p-3 text-xs">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {error}
           </div>
@@ -63,25 +63,25 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
         <div className="overflow-y-auto space-y-2.5 flex-1 pr-1">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
             semesters.map((sem) => (
               <div
                 key={sem.semesterId}
-                className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
+                className={`flex items-center justify-between rounded-app-md border p-3.5 transition-colors ${
                   sem.isActive
-                    ? 'bg-indigo-50/60 border-indigo-300'
-                    : 'bg-gray-50 border-gray-200'
+                    ? 'border-primary bg-primary-soft'
+                    : 'border-border bg-surface-muted'
                 }`}
               >
                 <div>
-                  <div className="font-bold text-sm text-gray-900">{sem.name}</div>
-                  <div className="text-xs text-gray-500 font-mono mt-0.5">{sem.semesterId}</div>
+                  <div className="text-sm font-bold text-text">{sem.name}</div>
+                  <div className="mt-0.5 font-mono text-xs text-muted">{sem.semesterId}</div>
                 </div>
 
                 {sem.isActive ? (
-                  <span className="px-2.5 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center gap-1">
+                  <span className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-white">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Active
                   </span>
@@ -90,7 +90,7 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
                     type="button"
                     disabled={submitting}
                     onClick={() => handleActivate(sem.semesterId)}
-                    className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold rounded-xl shadow-2xs transition-all active:scale-[0.98]"
+                    className="app-button-secondary min-h-9 px-3 py-1.5 text-xs"
                   >
                     Set Active
                   </button>
@@ -102,29 +102,29 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
 
         {/* Add New Semester Section */}
         {showAddForm ? (
-          <form onSubmit={handleCreate} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
-            <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Create New Semester</h4>
+          <form onSubmit={handleCreate} className="space-y-3 rounded-app-md border border-border bg-surface-muted p-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-text">Create New Semester</h4>
             
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Semester ID (Unique Key)</label>
+              <label className="app-label">Semester ID (Unique Key)</label>
               <input
                 type="text"
                 placeholder="e.g. 2026-2027-SEM2"
                 value={newSemId}
                 onChange={(e) => setNewSemId(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                className="app-input font-mono text-xs"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Display Name</label>
+              <label className="app-label">Display Name</label>
               <input
                 type="text"
                 placeholder="e.g. 2026/2027 Semester 2"
                 value={newSemName}
                 onChange={(e) => setNewSemName(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-hidden"
+                className="app-input text-xs"
                 required
               />
             </div>
@@ -135,9 +135,9 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
                 id="makeActive"
                 checked={makeActive}
                 onChange={(e) => setMakeActive(e.target.checked)}
-                className="rounded text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-border text-primary focus:ring-primary"
               />
-              <label htmlFor="makeActive" className="text-xs text-gray-700 font-medium">
+              <label htmlFor="makeActive" className="text-xs font-medium text-text">
                 Set as active semester immediately
               </label>
             </div>
@@ -146,14 +146,14 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="flex-1 py-2 bg-gray-200 text-gray-700 font-bold text-xs rounded-xl"
+                className="app-button-secondary flex-1 py-2 text-xs"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 shadow-xs"
+                className="app-button-primary flex-1 py-2 text-xs"
               >
                 {submitting ? 'Creating...' : 'Save Semester'}
               </button>
@@ -163,7 +163,7 @@ export const SemesterManagerModal: React.FC<Props> = ({ isOpen, onClose, onSemes
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="w-full py-2.5 bg-gray-900 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-all active:scale-[0.98]"
+            className="app-button-primary w-full"
           >
             <Plus className="w-4 h-4" />
             Create New Semester

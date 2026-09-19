@@ -48,16 +48,16 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[300px]">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
-        <p className="text-sm text-gray-500 font-medium">Aggregating team schedules...</p>
+      <div className="app-loading-state">
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted">Aggregating team schedules...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs flex items-center gap-2">
+      <div className="app-alert-error text-xs">
         <AlertCircle className="w-4 h-4 flex-shrink-0" />
         {error}
       </div>
@@ -67,22 +67,22 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
   const selectedDayObj = DAYS.find((d) => d.id === activeDay) || DAYS[0];
 
   return (
-    <div className="flex flex-col space-y-4 pb-20 mt-5">
+    <div className="mt-2 flex flex-col space-y-4 pb-20">
       {/* Overview Stats Banner */}
-      <div className="bg-gradient-to-br from-purple-700 to-indigo-800 text-white p-5 rounded-2xl shadow-sm flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-app-lg bg-primary p-5 text-white shadow-app-sm">
         <div>
-          <div className="flex items-center gap-1.5 text-purple-200 text-xs font-semibold tracking-wider uppercase">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/75">
             <Users className="w-3.5 h-3.5" />
             Team Aggregation
           </div>
           <h2 className="text-lg font-bold mt-1">Outreach Availability</h2>
-          <p className="text-xs text-purple-100 mt-1">
+          <p className="mt-1 text-xs text-white/80">
             {totalStudentsSubmitted} {totalStudentsSubmitted === 1 ? 'student has' : 'students have'} submitted responses
           </p>
         </div>
-        <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center border border-white/20">
+        <div className="flex h-12 w-12 flex-col items-center justify-center rounded-app-md border border-white/30 bg-white/15">
           <span className="text-lg font-extrabold">{totalStudentsSubmitted}</span>
-          <span className="text-[9px] uppercase font-bold text-purple-200">Total</span>
+          <span className="text-[9px] font-bold uppercase text-white/75">Total</span>
         </div>
       </div>
 
@@ -91,16 +91,16 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
         <button
           type="button"
           onClick={handleCopyText}
-          className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-[0.98]"
+          className="app-button-secondary min-h-10 flex-1 px-3 py-2 text-xs"
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-green-600" />
-              <span className="text-green-600">Copied to Clipboard!</span>
+              <Check className="h-3.5 w-3.5 text-success" />
+              <span className="text-success">Copied to Clipboard!</span>
             </>
           ) : (
             <>
-              <Share2 className="w-3.5 h-3.5 text-purple-600" />
+              <Share2 className="h-3.5 w-3.5 text-primary" />
               <span>Share {selectedDayObj.label} Text</span>
             </>
           )}
@@ -108,16 +108,16 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
         <button
           type="button"
           onClick={() => downloadSemesterCSV(activeSemester, aggregations)}
-          className="py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-[0.98]"
+          className="app-button-secondary min-h-10 px-3 py-2 text-xs"
           title="Download full CSV"
         >
-          <Download className="w-3.5 h-3.5 text-indigo-600" />
+          <Download className="h-3.5 w-3.5 text-primary" />
           <span>Export CSV</span>
         </button>
       </div>
 
       {/* Horizontal Day Selector */}
-      <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm">
+      <div className="app-panel p-1.5">
         <div className="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
           {DAYS.map((day) => {
             const isCurrent = activeDay === day.id;
@@ -133,16 +133,16 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
                 key={day.id}
                 type="button"
                 onClick={() => setActiveDay(day.id)}
-                className={`flex-1 min-w-[44px] py-2.5 rounded-xl flex flex-col items-center justify-center transition-all ${
+                className={`flex min-w-11 flex-1 flex-col items-center justify-center rounded-app-md py-2.5 transition-colors ${
                   isCurrent
-                    ? 'bg-purple-700 text-white font-bold shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100 font-medium'
+                    ? 'bg-primary font-bold text-white shadow-app-sm'
+                    : 'font-medium text-muted hover:bg-primary-soft hover:text-primary'
                 }`}
               >
                 <span className="text-xs">{day.label}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full mt-1 font-semibold ${
-                    isCurrent ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                    isCurrent ? 'bg-white/20 text-white' : 'bg-surface-muted text-muted'
                   }`}
                 >
                   {totalForDay}
@@ -156,10 +156,10 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
       {/* Time Slot Heatmap Cards */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted">
             {selectedDayObj.fullLabel} Heatmap
           </span>
-          <span className="text-xs text-gray-400">Tap card for names</span>
+          <span className="text-xs text-subtle">Tap card for names</span>
         </div>
 
         {TIME_SLOTS.map((slot) => {
@@ -168,18 +168,18 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
           const count = aggData.count;
 
           // Color intensity calculations
-          let intensityClass = 'bg-white border-gray-200 text-gray-700';
-          let badgeClass = 'bg-gray-100 text-gray-600';
+          let intensityClass = 'bg-surface border-border text-text';
+          let badgeClass = 'bg-surface-muted text-muted';
 
           if (count >= 4) {
-            intensityClass = 'bg-purple-50 border-purple-400 text-purple-950 shadow-sm';
-            badgeClass = 'bg-purple-700 text-white font-bold';
+            intensityClass = 'bg-primary-soft border-primary text-text shadow-app-sm';
+            badgeClass = 'bg-primary text-white font-bold';
           } else if (count >= 2) {
-            intensityClass = 'bg-indigo-50/70 border-indigo-300 text-indigo-950';
-            badgeClass = 'bg-indigo-600 text-white font-bold';
+            intensityClass = 'bg-primary-soft/70 border-primary-muted text-text';
+            badgeClass = 'bg-primary-hover text-white font-bold';
           } else if (count === 1) {
-            intensityClass = 'bg-slate-50 border-slate-200 text-slate-800';
-            badgeClass = 'bg-slate-200 text-slate-700 font-medium';
+            intensityClass = 'bg-surface-muted border-border text-text';
+            badgeClass = 'bg-primary-muted text-text font-medium';
           }
 
           return (
@@ -194,21 +194,21 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
                   users: aggData.availableUsers,
                 })
               }
-              className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between active:scale-[0.98] ${intensityClass} ${
-                count === 0 ? 'opacity-60 cursor-not-allowed' : 'hover:border-purple-300'
+              className={`flex w-full items-center justify-between rounded-app-lg border p-4 text-left transition-colors active:scale-[0.99] ${intensityClass} ${
+                count === 0 ? 'cursor-not-allowed opacity-60' : 'hover:border-primary'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    count > 0 ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
+                    count > 0 ? 'bg-primary-soft text-primary' : 'bg-surface-muted text-subtle'
                   }`}
                 >
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="font-bold text-sm">{slot.label}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{slot.time}</div>
+                  <div className="mt-0.5 text-xs text-muted">{slot.time}</div>
                 </div>
               </div>
 
@@ -216,7 +216,7 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
                 <span className={`px-2.5 py-1 rounded-full text-xs ${badgeClass}`}>
                   {count} {count === 1 ? 'Student' : 'Students'} Free
                 </span>
-                {count > 0 && <ChevronRight className="w-4 h-4 text-gray-400" />}
+                {count > 0 && <ChevronRight className="h-4 w-4 text-subtle" />}
               </div>
             </button>
           );
@@ -225,20 +225,20 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
 
       {/* Bottom Student Detail Drawer */}
       {selectedSlotModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-end justify-center p-0 sm:p-4">
-          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-200">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <div className="app-modal-backdrop items-end justify-center">
+          <div className="app-modal max-h-[80vh] space-y-4 sm:rounded-app-lg">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <h3 className="font-bold text-gray-900 text-base">
+                <h3 className="text-base font-bold text-text">
                   {selectedSlotModal.dayLabel} • {selectedSlotModal.slotLabel}
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="mt-0.5 text-xs text-muted">
                   {selectedSlotModal.users.length} available {selectedSlotModal.users.length === 1 ? 'student' : 'students'}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedSlotModal(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                className="app-icon-button size-9"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -248,22 +248,22 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
               {selectedSlotModal.users.map((st) => (
                 <div
                   key={st.uid}
-                  className="p-3 bg-gray-50 rounded-xl flex items-center gap-3 border border-gray-100"
+                  className="flex items-center gap-3 rounded-app-md border border-border bg-surface-muted p-3"
                 >
                   {st.photoURL ? (
                     <img
                       src={st.photoURL}
                       alt={st.displayName}
-                      className="w-9 h-9 rounded-full border border-gray-200"
+                      className="h-9 w-9 rounded-full border border-border"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-xs">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
                       {st.displayName?.charAt(0) || 'S'}
                     </div>
                   )}
                   <div>
-                    <div className="font-bold text-sm text-gray-900">{st.displayName}</div>
-                    <div className="text-xs text-gray-500">{st.email}</div>
+                    <div className="text-sm font-bold text-text">{st.displayName}</div>
+                    <div className="text-xs text-muted">{st.email}</div>
                   </div>
                 </div>
               ))}

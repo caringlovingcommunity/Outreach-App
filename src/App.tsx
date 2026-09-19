@@ -26,17 +26,17 @@ const AppContent: React.FC = () => {
     return (
       <div
         id="loading-screen"
-        className="min-h-screen w-full flex flex-col items-center justify-center bg-stone-50 p-4"
+        className="app-shell flex flex-col items-center justify-center p-4"
       >
         <div className="flex flex-col items-center space-y-4 text-center">
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-xs border border-stone-200">
-            <Loader2 className="h-7 w-7 animate-spin text-stone-800" />
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-app-lg border border-border bg-surface shadow-app-sm">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-base font-medium text-stone-900">
+            <h2 className="text-base font-semibold text-text">
               CLC Outreach Availability
             </h2>
-            <p className="text-xs text-stone-600">
+            <p className="text-xs text-muted">
               Verifying authentication state...
             </p>
           </div>
