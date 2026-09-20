@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Loader2, Shield, UserRound } from 'lucide-react';
+import { Check, Loader2, Shield, UserRound, X } from 'lucide-react';
 import type { ApprovalMember } from '../../services/organizerService';
 
 interface StudentApprovalCardProps {
@@ -7,6 +7,7 @@ interface StudentApprovalCardProps {
   isPending: boolean;
   canManageRoles: boolean;
   onApprove: () => void;
+  onReject: () => void;
   onRoleChange: (role: 'student' | 'organizer') => void;
 }
 
@@ -15,6 +16,7 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
   isPending,
   canManageRoles,
   onApprove,
+  onReject,
   onRoleChange,
 }) => (
   <article className="flex flex-col gap-4 border-b border-border py-4 sm:flex-row sm:items-center">
@@ -34,9 +36,14 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
     </div>
     <div className="flex flex-wrap items-center gap-2">
       {isPending && (
-        <button type="button" onClick={onApprove} className="app-button-primary" title="Approve member">
-          <Check className="h-4 w-4" /> Approve
-        </button>
+        <>
+          <button type="button" onClick={onApprove} className="app-button-primary" title="Approve member">
+            <Check className="h-4 w-4" /> Approve
+          </button>
+          <button type="button" onClick={onReject} className="app-button-secondary text-error" title="Reject member">
+            <X className="h-4 w-4" /> Reject
+          </button>
+        </>
       )}
       {canManageRoles && !isPending && (
         <>

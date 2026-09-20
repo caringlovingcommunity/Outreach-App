@@ -2,10 +2,11 @@ import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
-import { RequireProfileComplete } from './components/RequireProfileComplete';
+import { RequireProfileComplete, RequireRegistration } from './components/RequireProfileComplete';
 import { Loader2 } from 'lucide-react';
 import { OrganizerDashboard } from './components/OrganizerDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
+import { RegistrationPage } from './components/RegistrationPage';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -58,6 +59,14 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<AppContent />} />
+          <Route
+            path="/register"
+            element={
+              <RequireRegistration>
+                <RegistrationPage />
+              </RequireRegistration>
+            }
+          />
           <Route
             path="/"
             element={

@@ -38,12 +38,14 @@ const subscribeToApprovalQueries = (
   queries: typeof pendingQueries,
   onChange: (members: ApprovalMember[]) => void,
   onError: (error: Error) => void,
+  includeRejected = false,
 ) => {
   const snapshots = queries.map(() => new Map<string, PublicUserProfile>());
   let pendingLoads = queries.length;
 
   const emit = async () => {
-    const profiles = [...new Map(snapshots.flatMap((snapshot) => [...snapshot.entries()])).values()];
+    const profiles = [...new Map(snapshots.flatMap((snapshot) => [...snapshot.entries()])).values()]
+      .filter((profile) => includeRejected || profile.membershipStatus !== 'REJECTED');
     try {
       onChange(await hydrateApprovalMembers(profiles));
     } catch (error) {
@@ -76,6 +78,13 @@ export const subscribeToApprovedMembers = (
   query(collection(db, 'users_public'), where('membershipStatus', '==', 'APPROVED')),
 ], onChange, onError);
 
+export const subscribeToRejectedMembers = (
+  onChange: (members: ApprovalMember[]) => void,
+  onError: (error: Error) => void,
+) => subscribeToApprovalQueries([
+  query(collection(db, 'users_public'), where('membershipStatus', '==', 'REJECTED')),
+], onChange, onError, true);
+
 export const approveMember = async (memberUid: string, approvedByUid: string, approvedByEmail: string): Promise<void> => {
   const memberRef = doc(db, 'users_public', memberUid);
   const batch = writeBatch(db);
@@ -85,6 +94,16 @@ export const approveMember = async (memberUid: string, approvedByUid: string, ap
     approvedByUid,
     approvedByEmail,
     approvedAt: serverTimestamp(),
+  });
+  await batch.commit();
+};
+
+export const rejectMember = async (memberUid: string): Promise<void> => {
+  const memberRef = doc(db, 'users_public', memberUid);
+  const batch = writeBatch(db);
+  batch.update(memberRef, {
+    visionCastingAccepted: false,
+    membershipStatus: 'REJECTED',
   });
   await batch.commit();
 };

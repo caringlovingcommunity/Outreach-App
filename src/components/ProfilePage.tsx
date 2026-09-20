@@ -10,9 +10,10 @@ interface ProfilePageProps {
   user: UserProfile;
   onBack: () => void;
   onProfileUpdated: (updatedName: string) => void;
+  showBackButton?: boolean;
 }
 
-export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfileUpdated }) => {
+export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfileUpdated, showBackButton = true }) => {
   const currentUser = user;
 
   // Loading & Feedback States
@@ -203,10 +204,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
               </div>
             </div>
 
-            <button type="button" onClick={onBack} className="app-button-text mt-8 px-0">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </button>
+            {showBackButton && (
+              <button type="button" onClick={onBack} className="app-button-text mt-8 px-0">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -215,13 +218,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
 
   return (
     <div className="mx-auto max-w-3xl py-2">
-      <button
-        type="button"
-        onClick={onBack}
-        className="app-button-text mb-4 px-0"
-      >
-        Back to Dashboard
-      </button>
+      {showBackButton && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="app-button-text mb-4 px-0"
+        >
+          Back to Dashboard
+        </button>
+      )}
 
       <div className="app-panel overflow-hidden">
         

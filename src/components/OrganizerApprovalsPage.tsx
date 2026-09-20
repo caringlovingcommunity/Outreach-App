@@ -3,21 +3,24 @@ import { Loader2, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   approveMember,
+  rejectMember,
   subscribeToApprovedMembers,
   subscribeToPendingMembers,
+  subscribeToRejectedMembers,
   updateMemberRole,
 } from '../services/organizerService';
 import type { ApprovalMember } from '../services/organizerService';
 import { StudentApprovalCard } from './organizer/StudentApprovalCard';
 
 const ADMIN_UID = 'REPLACE_WITH_DEVELOPER_UID';
-type ApprovalTab = 'pending' | 'approved';
+type ApprovalTab = 'pending' | 'approved' | 'rejected';
 
 export const OrganizerApprovalsPage: React.FC = () => {
   const { user } = useAuth();
   const [tab, setTab] = useState<ApprovalTab>('pending');
   const [pendingMembers, setPendingMembers] = useState<ApprovalMember[]>([]);
   const [approvedMembers, setApprovedMembers] = useState<ApprovalMember[]>([]);
+  const [rejectedMembers, setRejectedMembers] = useState<ApprovalMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingUid, setUpdatingUid] = useState<string | null>(null);
@@ -36,9 +39,14 @@ export const OrganizerApprovalsPage: React.FC = () => {
       setApprovedMembers(members);
       setLoading(false);
     }, handleError);
+    const unsubscribeRejected = subscribeToRejectedMembers((members) => {
+      setRejectedMembers(members);
+      setLoading(false);
+    }, handleError);
     return () => {
       unsubscribePending();
       unsubscribeApproved();
+      unsubscribeRejected();
     };
   }, []);
 
@@ -55,7 +63,11 @@ export const OrganizerApprovalsPage: React.FC = () => {
     }
   };
 
-  const visibleMembers = tab === 'pending' ? pendingMembers : approvedMembers;
+  const visibleMembers = tab === 'pending'
+    ? pendingMembers
+    : tab === 'approved'
+      ? approvedMembers
+      : rejectedMembers;
 
   return (
     <section className="space-y-6">
@@ -65,15 +77,19 @@ export const OrganizerApprovalsPage: React.FC = () => {
         <p className="mt-1 text-sm text-muted">Review Vision Casting attendees and grant member access.</p>
       </div>
 
-      <div className="grid grid-cols-2 rounded-app-md border border-border bg-surface-muted p-1">
-        {(['pending', 'approved'] as ApprovalTab[]).map((currentTab) => (
+      <div className="grid grid-cols-3 rounded-app-md border border-border bg-surface-muted p-1">
+        {(['pending', 'approved', 'rejected'] as ApprovalTab[]).map((currentTab) => (
           <button
             key={currentTab}
             type="button"
             onClick={() => setTab(currentTab)}
             className={`rounded-app-sm px-3 py-2 text-sm font-semibold ${tab === currentTab ? 'bg-surface text-primary shadow-app-sm' : 'text-muted'}`}
           >
-            {currentTab === 'pending' ? `Pending Approvals (${pendingMembers.length})` : `Approved Members (${approvedMembers.length})`}
+            {currentTab === 'pending'
+              ? `Pending (${pendingMembers.length})`
+              : currentTab === 'approved'
+                ? `Approved (${approvedMembers.length})`
+                : `Rejected (${rejectedMembers.length})`}
           </button>
         ))}
       </div>
@@ -84,7 +100,7 @@ export const OrganizerApprovalsPage: React.FC = () => {
       ) : visibleMembers.length === 0 ? (
         <div className="app-panel flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center">
           <Users className="h-8 w-8 text-muted" />
-          <p className="font-semibold text-text">No {tab === 'pending' ? 'pending approvals' : 'approved members'}.</p>
+          <p className="font-semibold text-text">No {tab === 'pending' ? 'pending approvals' : tab === 'approved' ? 'approved members' : 'rejected members'}.</p>
           <p className="text-sm text-muted">This list updates automatically when profiles change.</p>
         </div>
       ) : (
@@ -94,8 +110,13 @@ export const OrganizerApprovalsPage: React.FC = () => {
               key={member.uid}
               member={member}
               isPending={tab === 'pending'}
-              canManageRoles={user?.uid === ADMIN_UID}
+              canManageRoles={tab === 'approved' && user?.uid === ADMIN_UID}
               onApprove={() => void runUpdate(member.uid, () => approveMember(member.uid, user?.uid || '', user?.email || ''))}
+              onReject={() => {
+                if (window.confirm(`Reject ${member.displayName || 'this member'}?`)) {
+                  void runUpdate(member.uid, () => rejectMember(member.uid));
+                }
+              }}
               onRoleChange={(role) => void runUpdate(member.uid, () => updateMemberRole(member.uid, role))}
             />
           ))}

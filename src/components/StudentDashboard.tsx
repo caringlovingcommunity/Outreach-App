@@ -29,10 +29,7 @@ const isProfileComplete = (profile: Awaited<ReturnType<typeof getCompleteUserPro
   profile.course &&
   profile.yearOfStudy &&
   profile.phone &&
-  profile.college &&
-  profile.gender &&
-  profile.race &&
-  profile.hometown
+  profile.college
 );
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout }) => {
