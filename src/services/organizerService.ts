@@ -8,6 +8,7 @@ import {
   getDoc,
   writeBatch,
   serverTimestamp,
+  deleteField,
   limit,
   orderBy 
 } from 'firebase/firestore';
@@ -104,6 +105,19 @@ export const rejectMember = async (memberUid: string): Promise<void> => {
   batch.update(memberRef, {
     visionCastingAccepted: false,
     membershipStatus: 'REJECTED',
+  });
+  await batch.commit();
+};
+
+export const resetMemberToPending = async (memberUid: string): Promise<void> => {
+  const memberRef = doc(db, 'users_public', memberUid);
+  const batch = writeBatch(db);
+  batch.update(memberRef, {
+    visionCastingAccepted: false,
+    membershipStatus: 'PENDING',
+    approvedByUid: deleteField(),
+    approvedByEmail: deleteField(),
+    approvedAt: deleteField(),
   });
   await batch.commit();
 };

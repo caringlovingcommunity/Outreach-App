@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   approveMember,
   rejectMember,
+  resetMemberToPending,
   subscribeToApprovedMembers,
   subscribeToPendingMembers,
   subscribeToRejectedMembers,
@@ -115,6 +116,11 @@ export const OrganizerApprovalsPage: React.FC = () => {
               onReject={() => {
                 if (window.confirm(`Reject ${member.displayName || 'this member'}?`)) {
                   void runUpdate(member.uid, () => rejectMember(member.uid));
+                }
+              }}
+              onReset={() => {
+                if (window.confirm(`Revoke ${member.displayName || 'this member'} status and return them to pending?`)) {
+                  void runUpdate(member.uid, () => resetMemberToPending(member.uid));
                 }
               }}
               onRoleChange={(role) => void runUpdate(member.uid, () => updateMemberRole(member.uid, role))}

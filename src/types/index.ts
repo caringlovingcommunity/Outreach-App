@@ -51,6 +51,9 @@ export interface Contact {
   responseStatuses: ResponseStatus[];
   followUpProgress: FollowUpProgress;
   remarks?: string;
+  linkedUserId?: string;
+  linkedAt?: any;
+  linkedByUid?: string;
   createdAt: any;
   updatedAt: any;
 }

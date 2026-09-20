@@ -8,6 +8,7 @@ interface StudentApprovalCardProps {
   canManageRoles: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onReset: () => void;
   onRoleChange: (role: 'student' | 'organizer') => void;
 }
 
@@ -17,6 +18,7 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
   canManageRoles,
   onApprove,
   onReject,
+  onReset,
   onRoleChange,
 }) => (
   <article className="flex flex-col gap-4 border-b border-border py-4 sm:flex-row sm:items-center">
@@ -47,6 +49,9 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
       )}
       {canManageRoles && !isPending && (
         <>
+          <button type="button" onClick={onReset} className="app-button-secondary text-error" title="Revoke member status">
+            Revoke status
+          </button>
           <button type="button" onClick={() => onRoleChange('organizer')} disabled={member.role === 'organizer'} className="app-button-secondary disabled:opacity-50" title="Promote to organizer">
             <Shield className="h-4 w-4" /> Promote
           </button>
@@ -55,6 +60,7 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
           </button>
         </>
       )}
+      {!isPending && !canManageRoles && <button type="button" onClick={onReset} className="app-button-secondary text-error" title="Revoke member status">Revoke status</button>}
       {isPending && <Loader2 className="h-4 w-4 animate-spin text-muted" aria-label="Updating member" />}
     </div>
   </article>

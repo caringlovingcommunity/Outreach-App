@@ -2,7 +2,9 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -12,8 +14,15 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Contact, ContactInput } from '../types';
+import type { PrivateUserProfile, PublicUserProfile } from '../types/user';
 
 const contactsCollection = collection(db, 'contacts');
+
+export interface ContactAccountMatch {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+}
 
 const cleanOptional = (value?: string): string | undefined => {
   const trimmed = value?.trim();
@@ -37,6 +46,17 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
       ? input.followUpProgress
       : { jof1_1: false, jof1_2: false, jof1_3: false },
     ...(remarks ? { remarks } : {}),
+  };
+};
+
+const getContactLinkMetadata = async (contactId: string): Promise<Pick<Contact, 'linkedUserId' | 'linkedAt' | 'linkedByUid'>> => {
+  const snapshot = await getDoc(doc(db, 'contacts', contactId));
+  if (!snapshot.exists()) return {};
+  const data = snapshot.data() as Contact;
+  return {
+    ...(data.linkedUserId ? { linkedUserId: data.linkedUserId } : {}),
+    ...(data.linkedAt ? { linkedAt: data.linkedAt } : {}),
+    ...(data.linkedByUid ? { linkedByUid: data.linkedByUid } : {}),
   };
 };
 
@@ -79,8 +99,44 @@ export const updateContact = async (
 ): Promise<void> => {
   await updateDoc(doc(db, 'contacts', contactId), {
     ...toPayload(input, createdById, createdByName),
+    ...(await getContactLinkMetadata(contactId)),
     updatedAt: serverTimestamp(),
   });
+};
+
+export const linkContactToUser = async (contactId: string, linkedUserId: string, linkedByUid: string): Promise<void> => {
+  await updateDoc(doc(db, 'contacts', contactId), {
+    linkedUserId,
+    linkedAt: serverTimestamp(),
+    linkedByUid,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const unlinkContactFromUser = async (contactId: string): Promise<void> => {
+  await updateDoc(doc(db, 'contacts', contactId), {
+    linkedUserId: deleteField(),
+    linkedAt: deleteField(),
+    linkedByUid: deleteField(),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+const normalizePhone = (value?: string): string => (value || '').replace(/[^0-9+]/g, '');
+
+export const findContactAccountMatch = async (contact: Contact): Promise<ContactAccountMatch | null> => {
+  const phoneNumber = normalizePhone(contact.phoneNumber);
+  if (!phoneNumber) return null;
+  const privateSnapshot = await getDocs(collection(db, 'users_private'));
+  const match = privateSnapshot.docs
+    .map((profile) => ({ id: profile.id, data: profile.data() as PrivateUserProfile }))
+    .find((profile) => profile.id !== contact.createdById && normalizePhone(profile.data.phone) === phoneNumber);
+  if (!match) return null;
+  const publicSnapshot = await getDoc(doc(db, 'users_public', match.id));
+  if (!publicSnapshot.exists()) return null;
+  const publicProfile = publicSnapshot.data() as PublicUserProfile;
+  if (publicProfile.role !== 'student' || publicProfile.membershipStatus !== 'APPROVED') return null;
+  return { uid: match.id, displayName: publicProfile.displayName || 'Registered student', photoURL: publicProfile.photoURL || '' };
 };
 
 export const deleteContact = async (contactId: string): Promise<void> => {
