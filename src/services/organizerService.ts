@@ -1,10 +1,13 @@
 import { 
   collection, 
+  onSnapshot,
   query, 
   where, 
   getDocs, 
   doc, 
   getDoc,
+  writeBatch,
+  serverTimestamp,
   limit,
   orderBy 
 } from 'firebase/firestore';
@@ -15,6 +18,83 @@ export interface StudentListItem extends PublicUserProfile {
   // We combine public and private data when an organizer views details
   privateDetails?: PrivateUserProfile;
 }
+
+export interface ApprovalMember extends PublicUserProfile {
+  email: string;
+}
+
+const pendingQueries = [
+  query(collection(db, 'users_public'), where('membershipStatus', '==', 'PENDING')),
+  query(collection(db, 'users_public'), where('visionCastingAccepted', '==', false)),
+];
+
+const hydrateApprovalMembers = async (profiles: PublicUserProfile[]): Promise<ApprovalMember[]> => {
+  const privateSnapshot = await getDocs(collection(db, 'users_private'));
+  const emails = new Map(privateSnapshot.docs.map((privateDoc) => [privateDoc.id, privateDoc.data().email || '']));
+  return profiles.map((profile) => ({ ...profile, email: emails.get(profile.uid) || '' }));
+};
+
+const subscribeToApprovalQueries = (
+  queries: typeof pendingQueries,
+  onChange: (members: ApprovalMember[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const snapshots = queries.map(() => new Map<string, PublicUserProfile>());
+  let pendingLoads = queries.length;
+
+  const emit = async () => {
+    const profiles = [...new Map(snapshots.flatMap((snapshot) => [...snapshot.entries()])).values()];
+    try {
+      onChange(await hydrateApprovalMembers(profiles));
+    } catch (error) {
+      onError(error instanceof Error ? error : new Error('Unable to load member email addresses.'));
+    }
+  };
+
+  const unsubscribes = queries.map((approvalQuery, index) => onSnapshot(
+    approvalQuery,
+    (snapshot) => {
+      snapshots[index] = new Map(snapshot.docs.map((approvalDoc) => [approvalDoc.id, approvalDoc.data() as PublicUserProfile]));
+      pendingLoads -= 1;
+      if (pendingLoads <= 0) void emit();
+    },
+    (error) => onError(error),
+  ));
+
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+};
+
+export const subscribeToPendingMembers = (
+  onChange: (members: ApprovalMember[]) => void,
+  onError: (error: Error) => void,
+) => subscribeToApprovalQueries(pendingQueries, onChange, onError);
+
+export const subscribeToApprovedMembers = (
+  onChange: (members: ApprovalMember[]) => void,
+  onError: (error: Error) => void,
+) => subscribeToApprovalQueries([
+  query(collection(db, 'users_public'), where('membershipStatus', '==', 'APPROVED')),
+], onChange, onError);
+
+export const approveMember = async (memberUid: string, approvedByUid: string, approvedByEmail: string): Promise<void> => {
+  const memberRef = doc(db, 'users_public', memberUid);
+  const batch = writeBatch(db);
+  batch.update(memberRef, {
+    visionCastingAccepted: true,
+    membershipStatus: 'APPROVED',
+    approvedByUid,
+    approvedByEmail,
+    approvedAt: serverTimestamp(),
+  });
+  await batch.commit();
+};
+
+export const updateMemberRole = async (memberUid: string, role: 'student' | 'organizer'): Promise<void> => {
+  const memberRef = doc(db, 'users_public', memberUid);
+  const batch = writeBatch(db);
+  batch.update(memberRef, { role });
+  await batch.commit();
+};
 
 /**
  * Fetches public profiles for all registered students.

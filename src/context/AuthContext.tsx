@@ -6,7 +6,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, isFirebaseConfigured } from '../services/firebase';
 import type { UserProfile, UserRole } from '../types';
 import type { PublicUserProfile } from '../types/user';
@@ -61,7 +61,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      unsubscribeProfile?.();
+      unsubscribeProfile = null;
+
       if (firebaseUser) {
         try {
           const publicProfileRef = doc(db, 'users_public', firebaseUser.uid);
@@ -78,6 +83,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               displayName: legacyData.displayName || firebaseUser.displayName || 'User',
               photoURL: legacyData.photoURL || firebaseUser.photoURL || '',
               role: role as UserRole,
+              visionCastingAccepted: role === 'organizer',
+              membershipStatus: role === 'organizer' ? 'APPROVED' : 'PENDING',
               createdAt: serverTimestamp(),
             };
             const newPrivateProfile = {
@@ -110,6 +117,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               displayName: publicProfile.displayName ?? (firebaseUser.displayName || ''),
               photoURL: publicProfile.photoURL ?? (firebaseUser.photoURL || ''),
               role: (publicProfile.role as UserRole) || 'student',
+              visionCastingAccepted: publicProfile.visionCastingAccepted === true,
+              membershipStatus: publicProfile.membershipStatus === 'APPROVED' ? 'APPROVED' : 'PENDING',
               createdAt: publicProfile.createdAt,
             };
             if (!privateProfileSnap.exists()) {
@@ -122,6 +131,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUserProfile(publicProfile);
             setUser(existingProfile);
           }
+
+          unsubscribeProfile = onSnapshot(
+            publicProfileRef,
+            (profileSnap) => {
+              if (!profileSnap.exists()) return;
+
+              const profile = profileSnap.data() as PublicUserProfile;
+              setUserProfile(profile);
+              setUser((previous) => previous ? {
+                ...previous,
+                displayName: profile.displayName || previous.displayName,
+                photoURL: profile.photoURL || '',
+                role: profile.role || 'student',
+                visionCastingAccepted: profile.visionCastingAccepted === true,
+                membershipStatus: profile.membershipStatus,
+                approvedByUid: profile.approvedByUid,
+                approvedByEmail: profile.approvedByEmail,
+                approvedAt: profile.approvedAt,
+                createdAt: profile.createdAt,
+              } : previous);
+            },
+            (error) => console.error('Error listening to user profile:', error),
+          );
         } catch (error) {
           console.error('Error fetching or creating user profile in Firestore:', error);
           // Fallback gracefully so the session is preserved even if Firestore rules or offline restricts access
@@ -142,7 +174,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeProfile?.();
+      unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async (): Promise<void> => {

@@ -2,6 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { PendingApprovalPage } from './PendingApprovalPage';
 
 interface Props {
   children: ReactNode;
@@ -21,6 +22,10 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (user.role !== 'organizer' && user.visionCastingAccepted !== true) {
+    return <PendingApprovalPage />;
   }
 
   return children;

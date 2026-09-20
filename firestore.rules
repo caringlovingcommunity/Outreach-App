@@ -12,7 +12,13 @@ service cloud.firestore {
 
     function isOrganizer() {
       return isAuthenticated() &&
-        get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.role == 'organizer';
+        (request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' ||
+          get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.role == 'organizer');
+    }
+
+    function isMember() {
+      return isOrganizer() || (isAuthenticated() &&
+        get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.visionCastingAccepted == true);
     }
 
     // Temporary migration access for profiles created before the privacy split.
@@ -25,12 +31,38 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId) &&
         request.resource.data.uid == userId &&
-        (request.resource.data.role == 'student' ||
+        ((request.resource.data.role == 'student' &&
+          request.resource.data.visionCastingAccepted == false &&
+          request.resource.data.membershipStatus == 'PENDING') ||
           (request.resource.data.role == 'organizer' &&
-            get(/databases/$(database)/documents/users/$(userId)).data.role == 'organizer'));
+            request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' &&
+            request.resource.data.visionCastingAccepted == true &&
+            request.resource.data.membershipStatus == 'APPROVED'));
       allow update: if isOwner(userId) &&
         request.resource.data.uid == resource.data.uid &&
-        request.resource.data.role == resource.data.role;
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'faculty', 'course', 'yearOfStudy']) &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.visionCastingAccepted == resource.data.visionCastingAccepted &&
+        request.resource.data.membershipStatus == resource.data.membershipStatus;
+      allow update: if isOrganizer() &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'visionCastingAccepted', 'membershipStatus', 'approvedByUid',
+          'approvedByEmail', 'approvedAt'
+        ]) &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.visionCastingAccepted is bool &&
+        request.resource.data.membershipStatus in ['PENDING', 'APPROVED', 'REJECTED'] &&
+        (!('approvedByUid' in request.resource.data) || request.resource.data.approvedByUid is string) &&
+        (!('approvedByEmail' in request.resource.data) || request.resource.data.approvedByEmail is string) &&
+        (!('approvedAt' in request.resource.data) || request.resource.data.approvedAt is timestamp);
+      allow update: if isAuthenticated() &&
+        request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']) &&
+        request.resource.data.role in ['student', 'organizer'] &&
+        request.resource.data.visionCastingAccepted == resource.data.visionCastingAccepted &&
+        request.resource.data.membershipStatus == resource.data.membershipStatus;
       allow delete: if false;
     }
 
@@ -51,10 +83,18 @@ service cloud.firestore {
 
     match /availabilities/{availabilityId} {
       allow read: if isOrganizer() ||
-        (isAuthenticated() && availabilityId.matches('^' + request.auth.uid + '_.*'));
-      allow create, update: if isAuthenticated() &&
-        request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() &&
+        (isMember() && availabilityId.matches('^' + request.auth.uid + '_.*'));
+      allow create: if isMember() &&
+        availabilityId == request.auth.uid + '_' + request.resource.data.semesterId &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.semesterId is string &&
+        request.resource.data.slots is list;
+      allow update: if isMember() &&
+        availabilityId == request.auth.uid + '_' + resource.data.semesterId &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.semesterId == resource.data.semesterId &&
+        request.resource.data.slots is list;
+      allow delete: if isMember() &&
         resource.data.userId == request.auth.uid;
     }
 
@@ -112,17 +152,17 @@ service cloud.firestore {
     }
 
     match /contacts/{contactId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() &&
+      allow read: if isMember();
+      allow create: if isMember() &&
         request.resource.data.createdById == request.auth.uid &&
         validContact(request.resource.data);
-      allow update: if isAuthenticated() &&
+      allow update: if isMember() &&
         (isOwner(resource.data.createdById) || isOrganizer()) &&
         request.resource.data.createdById == resource.data.createdById &&
         request.resource.data.createdByName == resource.data.createdByName &&
         request.resource.data.createdAt == resource.data.createdAt &&
         validContact(request.resource.data);
-      allow delete: if isAuthenticated() &&
+      allow delete: if isMember() &&
         (isOwner(resource.data.createdById) || isOrganizer());
     }
   }

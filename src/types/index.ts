@@ -6,6 +6,11 @@ export interface UserProfile {
   displayName: string;
   photoURL: string;
   role: UserRole;
+  visionCastingAccepted?: boolean;
+  membershipStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvedByUid?: string;
+  approvedByEmail?: string;
+  approvedAt?: any;
   createdAt: any;
 }
 

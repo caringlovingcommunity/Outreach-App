@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, CalendarDays, PartyPopper, Settings, UserCircle, Users } from 'lucide-react';
+import { BarChart3, CalendarDays, ClipboardCheck, PartyPopper, Settings, UserCircle, Users } from 'lucide-react';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
@@ -10,6 +10,7 @@ import { ProfilePage } from './ProfilePage';
 import { SubmissionTracker } from './SubmissionTracker';
 import { OrganizerStudentList } from './OrganizerStudentList';
 import { FriendsPage } from './FriendsPage';
+import { OrganizerApprovalsPage } from './OrganizerApprovalsPage';
 import { useAvailability } from '../hooks/useAvailability';
 import type { UserProfile } from '../types';
 
@@ -18,7 +19,7 @@ interface OrganizerDashboardProps {
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'friends' | 'profile';
+type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'approvals' | 'friends' | 'profile';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'my_availability', label: 'My Availability', icon: CalendarDays },
@@ -26,6 +27,7 @@ const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ class
   { id: 'events', label: 'Events', icon: PartyPopper },
   { id: 'student_directory', label: 'Directory', icon: Users },
   { id: 'submission_progress', label: 'Progress', icon: BarChart3 },
+  { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
 ];
 
@@ -121,6 +123,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
           <SubmissionTracker activeSemesterId={activeSemester?.semesterId} activeSemesterName={activeSemester?.name} />
         ) : activeTab === 'student_directory' ? (
           <OrganizerStudentList />
+        ) : activeTab === 'approvals' ? (
+          <OrganizerApprovalsPage />
         ) : activeTab === 'events' ? (
           <OrganizerEvents />
         ) : activeTab === 'heatmap' ? (
