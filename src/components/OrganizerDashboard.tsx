@@ -90,14 +90,14 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
                 {user.displayName}
               </span>
             </div>
-            <button
+            {/* <button
               type="button"
               onClick={() => setIsSemesterModalOpen(true)}
               className="app-icon-button"
               title="Manage Semesters"
             >
               <Settings className="h-4 w-4" />
-            </button>
+            </button> */}
           </div>
         </div>
 

@@ -63,7 +63,7 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId }) => {
 
   return (
     <section className="mx-auto max-w-5xl pb-6">
-      <div className="-mx-4 bg-primary px-4 py-7 text-white sm:mx-0 sm:rounded-app-lg sm:px-8">
+      <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
         <p className="text-2xl font-bold sm:text-3xl">Friends</p>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
           Step out in faith to make new friends, and remain organized and intentional in your connections.

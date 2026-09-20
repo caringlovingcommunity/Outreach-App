@@ -39,14 +39,21 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div
-      id="login-page-container"
-      className="app-shell flex items-center justify-center px-4 py-12"
-    >
       <div
-        id="login-card"
-        className="w-full max-w-md rounded-app-lg border border-border bg-surface p-8 shadow-app-md"
+        id="login-page-container"
+        className="app-shell flex flex-col items-center justify-center px-4 py-8 sm:py-12"
       >
+        <div
+          id="login-card"
+          className="w-full max-w-md rounded-app-lg border border-border bg-surface p-8 shadow-app-md"
+        >
+        <img
+          src="/Picture1.png"
+          alt="Students connecting through outreach"
+          className="mb-0 w-full max-w-xl object-contain"
+        />
+
+        
         {/* Header Section */}
         <div id="login-header" className="flex flex-col items-center text-center space-y-3">
           <div
