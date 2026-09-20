@@ -7,7 +7,7 @@ export interface UserProfile {
   photoURL: string;
   role: UserRole;
   visionCastingAccepted?: boolean;
-  membershipStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  membershipStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILTERED';
   approvedByUid?: string;
   approvedByEmail?: string;
   approvedAt?: any;

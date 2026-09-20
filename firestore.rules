@@ -52,7 +52,7 @@ service cloud.firestore {
         ]) &&
         request.resource.data.role == resource.data.role &&
         request.resource.data.visionCastingAccepted is bool &&
-        request.resource.data.membershipStatus in ['PENDING', 'APPROVED', 'REJECTED'] &&
+        request.resource.data.membershipStatus in ['PENDING', 'APPROVED', 'REJECTED', 'FILTERED'] &&
         (!('approvedByUid' in request.resource.data) || request.resource.data.approvedByUid is string) &&
         (!('approvedByEmail' in request.resource.data) || request.resource.data.approvedByEmail is string) &&
         (!('approvedAt' in request.resource.data) || request.resource.data.approvedAt is timestamp);

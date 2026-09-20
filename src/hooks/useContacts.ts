@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getCommunityContacts, getMyContacts } from '../services/contactsService';
+import { getCommunityContacts, getFilteredContacts, getMyContacts } from '../services/contactsService';
 import type { Contact } from '../types';
 
 export const useContacts = () => {
   const { user } = useAuth();
   const [myContacts, setMyContacts] = useState<Contact[]>([]);
   const [communityContacts, setCommunityContacts] = useState<Contact[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,12 +16,14 @@ export const useContacts = () => {
     try {
       setLoading(true);
       setError(null);
-      const [mine, community] = await Promise.all([
+      const [mine, community, filtered] = await Promise.all([
         getMyContacts(user.uid),
         getCommunityContacts(),
+        getFilteredContacts(user.uid),
       ]);
       setMyContacts(mine);
       setCommunityContacts(community);
+      setFilteredContacts(filtered);
     } catch (loadError) {
       console.error('Failed to load contacts:', loadError);
       setError('Unable to load contacts. Please try again.');
@@ -31,5 +34,5 @@ export const useContacts = () => {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  return { myContacts, communityContacts, loading, error, refresh };
+  return { myContacts, communityContacts, filteredContacts, loading, error, refresh };
 };

@@ -7,6 +7,7 @@ export const PendingApprovalPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
   const isRejected = user?.membershipStatus === 'REJECTED';
+  const isFiltered = user?.membershipStatus === 'FILTERED';
 
   const checkStatus = async () => {
     setRefreshing(true);
@@ -25,16 +26,18 @@ export const PendingApprovalPage: React.FC = () => {
     <main className="app-shell flex min-h-screen items-center justify-center px-4 py-8">
       <section className="app-panel w-full max-w-md p-6 text-center sm:p-8">
         <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${isRejected ? 'bg-error-soft text-error' : 'bg-primary-soft text-primary'}`}>
-          {isRejected ? <XCircle className="h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
+          {isRejected || isFiltered ? <XCircle className="h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
         </div>
         <h1 className="mt-5 text-xl font-bold text-text">Welcome to CLC Outreach</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          {isRejected
+          {isFiltered
+            ? 'Your account is inactive and has been filtered by an organizer. Please speak with an organizer if you believe this was a mistake.'
+            : isRejected
             ? 'Your membership request was not approved. Please speak with an organizer if you believe this was a mistake.'
             : 'Your account is signed in. Please connect with an organizer during Vision Casting to activate your CLC member access.'}
         </p>
         <p className="mt-3 rounded-app-md bg-surface-muted px-3 py-2 text-xs text-muted">
-          Approval status: <span className={`font-semibold ${isRejected ? 'text-error' : 'text-text'}`}>{isRejected ? 'Rejected' : 'Pending'}</span>
+          Approval status: <span className={`font-semibold ${isRejected || isFiltered ? 'text-error' : 'text-text'}`}>{isFiltered ? 'Filtered' : isRejected ? 'Rejected' : 'Pending'}</span>
         </p>
         {message && <p className="mt-4 text-xs text-muted">{message}</p>}
         <div className="mt-6 grid gap-2">

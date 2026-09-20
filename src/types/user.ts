@@ -9,7 +9,7 @@ export type CollegeName =
   | 'Taz' | 'Kenanga' | 'Kasturi' | 'Seroja' 
   | 'Roffo' | 'Unijaya' | 'Uni central' | 'Other';
 
-export type MembershipStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type MembershipStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILTERED';
 
 /**
  * Public document stored in users_public/{userId}

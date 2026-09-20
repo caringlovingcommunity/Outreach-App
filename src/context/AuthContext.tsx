@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               photoURL: publicProfile.photoURL ?? (firebaseUser.photoURL || ''),
               role: (publicProfile.role as UserRole) || 'student',
               visionCastingAccepted: publicProfile.visionCastingAccepted === true,
-              membershipStatus: publicProfile.membershipStatus === 'APPROVED' ? 'APPROVED' : 'PENDING',
+              membershipStatus: publicProfile.membershipStatus || 'PENDING',
               createdAt: publicProfile.createdAt,
             };
             if (!privateProfileSnap.exists()) {

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MoreVertical, Search, Users } from 'lucide-react';
-import { getTeamFriends } from '../services/friendsService';
-import type { PublicUserProfile } from '../types/user';
+import { getTeamFriendsWithContacts } from '../services/friendsService';
+import type { LinkedTeamFriend } from '../services/friendsService';
+import type { Contact } from '../types';
 import { MySheepsPage } from './MySheepsPage';
 
 type FriendsView = 'my_friends' | 'team_friends' | 'dashboard';
@@ -16,18 +17,59 @@ const viewLabels: Record<FriendsView, string> = {
   dashboard: 'Dashboard',
 };
 
+const formatLabel = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+
+const OutreachContactDetails: React.FC<{ contact: Contact }> = ({ contact }) => {
+  const completedFollowUp = Object.entries(contact.followUpProgress)
+    .filter(([, complete]) => complete)
+    .map(([step]) => formatLabel(step))
+    .join(', ');
+
+  return (
+    <article className="rounded-app-md border border-border p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Outreach contact</p>
+          <h3 className="mt-1 font-semibold text-text">{contact.name}</h3>
+        </div>
+        <span className="rounded-full bg-primary-soft px-2 py-1 text-xs font-semibold text-primary">{formatLabel(contact.gospelStatus)}</span>
+      </div>
+
+      <div className="mt-4 grid gap-3 text-sm text-text sm:grid-cols-2">
+        <p><span className="font-semibold">Phone:</span> {contact.phoneNumber || 'Not provided'}</p>
+        <p><span className="font-semibold">Gender:</span> {formatLabel(contact.gender)}</p>
+        <p><span className="font-semibold">Responses:</span> {contact.responseStatuses.map(formatLabel).join(', ') || 'None recorded'}</p>
+        <p><span className="font-semibold">Follow-up:</span> {completedFollowUp || 'Not started'}</p>
+      </div>
+
+      {contact.remarks && (
+        <div className="mt-4 border-t border-border pt-3 text-sm text-text">
+          <p className="font-semibold">Remarks</p>
+          <p className="mt-1 text-muted">{contact.remarks}</p>
+        </div>
+      )}
+
+      <div className="mt-4 border-t border-border pt-3 text-xs text-muted">
+        <p>Added by {contact.createdByName}</p>
+        <p className="mt-1">Added: {contact.createdAt?.toDate?.()?.toLocaleString?.() || 'Unknown'}</p>
+        <p>Updated: {contact.updatedAt?.toDate?.()?.toLocaleString?.() || 'Unknown'}</p>
+      </div>
+    </article>
+  );
+};
+
 export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId }) => {
   const [activeView, setActiveView] = useState<FriendsView>('team_friends');
-  const [people, setPeople] = useState<PublicUserProfile[]>([]);
+  const [people, setPeople] = useState<LinkedTeamFriend[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPerson, setSelectedPerson] = useState<PublicUserProfile | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<LinkedTeamFriend | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    getTeamFriends()
+    getTeamFriendsWithContacts()
       .then((profiles) => {
         if (isMounted) setPeople(profiles.filter((profile) => profile.uid !== currentUserId));
       })
@@ -47,14 +89,14 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId }) => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     if (!normalizedSearch) return people;
     return people.filter((person) =>
-      [person.displayName, person.course, person.faculty]
+      [person.displayName, person.course, person.faculty, ...person.linkedContacts.map((contact) => contact.name)]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(normalizedSearch)),
     );
   }, [people, searchTerm]);
 
   const groupedPeople = useMemo(() => {
-    return filteredPeople.reduce<Record<string, PublicUserProfile[]>>((groups, person) => {
+    return filteredPeople.reduce<Record<string, LinkedTeamFriend[]>>((groups, person) => {
       const group = person.faculty || 'Outreach Team';
       groups[group] = [...(groups[group] || []), person];
       return groups;
@@ -133,6 +175,7 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId }) => {
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-text">{person.displayName}</p>
                           <p className="truncate text-sm text-muted">{person.course || 'CLC Outreach member'}</p>
+                          {person.linkedContacts.length > 0 && <p className="truncate text-xs font-semibold text-primary">CLC Friends · {person.linkedContacts.map((contact) => contact.name).join(', ')}</p>}
                         </div>
                         <button
                           type="button"
@@ -183,9 +226,14 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId }) => {
                 <p className="text-sm text-muted">{selectedPerson.course || 'CLC Outreach member'}</p>
               </div>
             </div>
-            <div className="mt-5 grid gap-3 text-sm text-text">
-              {selectedPerson.faculty && <p><span className="font-semibold">Faculty:</span> {selectedPerson.faculty}</p>}
-              {selectedPerson.yearOfStudy && <p><span className="font-semibold">Year:</span> {selectedPerson.yearOfStudy}</p>}
+            <div className="mt-5 space-y-4">
+              <div className="grid gap-3 text-sm text-text sm:grid-cols-2">
+                {selectedPerson.faculty && <p><span className="font-semibold">Faculty:</span> {selectedPerson.faculty}</p>}
+                {selectedPerson.yearOfStudy && <p><span className="font-semibold">Year:</span> {selectedPerson.yearOfStudy}</p>}
+              </div>
+              {selectedPerson.linkedContacts.length > 0 ? selectedPerson.linkedContacts.map((contact) => (
+                <OutreachContactDetails key={contact.id} contact={contact} />
+              )) : <p className="text-sm text-muted">No outreach contacts linked.</p>}
             </div>
             <button type="button" onClick={() => setSelectedPerson(null)} className="app-button-secondary mt-6 w-full">Close</button>
           </section>

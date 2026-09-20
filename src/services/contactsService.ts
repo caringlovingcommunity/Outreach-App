@@ -49,17 +49,6 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
   };
 };
 
-const getContactLinkMetadata = async (contactId: string): Promise<Pick<Contact, 'linkedUserId' | 'linkedAt' | 'linkedByUid'>> => {
-  const snapshot = await getDoc(doc(db, 'contacts', contactId));
-  if (!snapshot.exists()) return {};
-  const data = snapshot.data() as Contact;
-  return {
-    ...(data.linkedUserId ? { linkedUserId: data.linkedUserId } : {}),
-    ...(data.linkedAt ? { linkedAt: data.linkedAt } : {}),
-    ...(data.linkedByUid ? { linkedByUid: data.linkedByUid } : {}),
-  };
-};
-
 export const createContact = async (
   input: ContactInput,
   createdById: string,
@@ -86,6 +75,15 @@ export const getMyContacts = async (userId: string): Promise<Contact[]> => {
   return snapshot.docs.map(mapContact);
 };
 
+export const getFilteredContacts = async (userId: string): Promise<Contact[]> => {
+  const [contacts, filteredProfiles] = await Promise.all([
+    getMyContacts(userId),
+    getDocs(query(collection(db, 'users_public'), where('membershipStatus', '==', 'FILTERED'))),
+  ]);
+  const filteredUserIds = new Set(filteredProfiles.docs.map((profile) => profile.id));
+  return contacts.filter((contact) => contact.linkedUserId && filteredUserIds.has(contact.linkedUserId));
+};
+
 export const getCommunityContacts = async (): Promise<Contact[]> => {
   const snapshot = await getDocs(query(contactsCollection, orderBy('createdAt', 'desc')));
   return snapshot.docs.map(mapContact);
@@ -99,7 +97,6 @@ export const updateContact = async (
 ): Promise<void> => {
   await updateDoc(doc(db, 'contacts', contactId), {
     ...toPayload(input, createdById, createdByName),
-    ...(await getContactLinkMetadata(contactId)),
     updatedAt: serverTimestamp(),
   });
 };

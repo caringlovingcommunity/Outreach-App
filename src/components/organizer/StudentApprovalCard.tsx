@@ -9,6 +9,7 @@ interface StudentApprovalCardProps {
   onApprove: () => void;
   onReject: () => void;
   onReset: () => void;
+  onFilter: () => void;
   onRoleChange: (role: 'student' | 'organizer') => void;
 }
 
@@ -19,6 +20,7 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
   onApprove,
   onReject,
   onReset,
+  onFilter,
   onRoleChange,
 }) => (
   <article className="flex flex-col gap-4 border-b border-border py-4 sm:flex-row sm:items-center">
@@ -47,8 +49,11 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
           </button>
         </>
       )}
-      {canManageRoles && !isPending && (
+      {!isPending && (
         <>
+          {member.membershipStatus !== 'FILTERED' && <button type="button" onClick={onFilter} className="app-button-secondary text-error" title="Move member to filtered">Filter</button>}
+          {canManageRoles && (
+            <>
           <button type="button" onClick={onReset} className="app-button-secondary text-error" title="Revoke member status">
             Revoke status
           </button>
@@ -58,6 +63,8 @@ export const StudentApprovalCard: React.FC<StudentApprovalCardProps> = ({
           <button type="button" onClick={() => onRoleChange('student')} disabled={member.role === 'student'} className="app-button-secondary disabled:opacity-50" title="Demote to student">
             {member.role === 'student' ? 'Student' : 'Demote'}
           </button>
+            </>
+          )}
         </>
       )}
       {!isPending && !canManageRoles && <button type="button" onClick={onReset} className="app-button-secondary text-error" title="Revoke member status">Revoke status</button>}

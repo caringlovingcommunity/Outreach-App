@@ -6,6 +6,7 @@ import {
   getDocs, 
   doc, 
   getDoc,
+  updateDoc,
   writeBatch,
   serverTimestamp,
   deleteField,
@@ -46,7 +47,7 @@ const subscribeToApprovalQueries = (
 
   const emit = async () => {
     const profiles = [...new Map(snapshots.flatMap((snapshot) => [...snapshot.entries()])).values()]
-      .filter((profile) => includeRejected || profile.membershipStatus !== 'REJECTED');
+      .filter((profile) => includeRejected || !['REJECTED', 'FILTERED'].includes(profile.membershipStatus || ''));
     try {
       onChange(await hydrateApprovalMembers(profiles));
     } catch (error) {
@@ -86,6 +87,13 @@ export const subscribeToRejectedMembers = (
   query(collection(db, 'users_public'), where('membershipStatus', '==', 'REJECTED')),
 ], onChange, onError, true);
 
+export const subscribeToFilteredMembers = (
+  onChange: (members: ApprovalMember[]) => void,
+  onError: (error: Error) => void,
+) => subscribeToApprovalQueries([
+  query(collection(db, 'users_public'), where('membershipStatus', '==', 'FILTERED')),
+], onChange, onError, true);
+
 export const approveMember = async (memberUid: string, approvedByUid: string, approvedByEmail: string): Promise<void> => {
   const memberRef = doc(db, 'users_public', memberUid);
   const batch = writeBatch(db);
@@ -107,6 +115,14 @@ export const rejectMember = async (memberUid: string): Promise<void> => {
     membershipStatus: 'REJECTED',
   });
   await batch.commit();
+};
+
+export const filterMember = async (memberUid: string): Promise<void> => {
+  const memberRef = doc(db, 'users_public', memberUid);
+  await updateDoc(memberRef, {
+    visionCastingAccepted: false,
+    membershipStatus: 'FILTERED',
+  });
 };
 
 export const resetMemberToPending = async (memberUid: string): Promise<void> => {
