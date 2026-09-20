@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import type { Semester, UserProfile } from '../types';
+import type { Semester } from '../types';
 import { useOrganizerHeatmap } from '../hooks/useOrganizerHeatmap';
+import type { HeatmapStudent } from '../hooks/useOrganizerHeatmap';
 import { Users, Clock, Loader2, AlertCircle, X, ChevronRight } from 'lucide-react';
 import { Download, Share2, Check } from 'lucide-react';
 import { generateFormattedDaySummary, downloadSemesterCSV } from '../utils/exportUtils';
+import { SlotPairingModal } from './organizer/SlotPairingModal';
 
 const DAYS = [
   { id: 'MON', label: 'Mon', fullLabel: 'Monday' },
@@ -31,9 +33,10 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
   const [selectedSlotModal, setSelectedSlotModal] = useState<{
     slotLabel: string;
     dayLabel: string;
-    users: UserProfile[];
+    users: HeatmapStudent[];
   } | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [pairingOpen, setPairingOpen] = useState(false);
 
   const handleCopyText = async () => {
     const summaryText = generateFormattedDaySummary(activeDay, aggregations);
@@ -187,7 +190,7 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
               key={slot.id}
               type="button"
               disabled={count === 0}
-              onClick={() =>
+                onClick={() =>
                 setSelectedSlotModal({
                   slotLabel: `${slot.label} (${slot.time})`,
                   dayLabel: selectedDayObj.fullLabel,
@@ -268,9 +271,16 @@ export const OrganizerHeatmap: React.FC<Props> = ({ activeSemester }) => {
                 </div>
               ))}
             </div>
+            <button type="button" onClick={() => setPairingOpen(true)} className="app-button-primary w-full">Open Pairing</button>
           </div>
         </div>
       )}
+      <SlotPairingModal
+        isOpen={pairingOpen && Boolean(selectedSlotModal)}
+        onClose={() => setPairingOpen(false)}
+        slotLabel={selectedSlotModal ? `${selectedSlotModal.dayLabel} ${selectedSlotModal.slotLabel}` : ''}
+        availableStudents={(selectedSlotModal?.users || []).map((student) => ({ uid: student.uid, displayName: student.displayName, phoneNumber: student.phoneNumber, gender: student.gender }))}
+      />
     </div>
   );
 };

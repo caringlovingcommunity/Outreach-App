@@ -7,7 +7,12 @@ import type { Semester, UserProfile, Availability } from '../types';
 export interface SlotAggregation {
   slotKey: string;
   count: number;
-  availableUsers: UserProfile[];
+  availableUsers: HeatmapStudent[];
+}
+
+export interface HeatmapStudent extends UserProfile {
+  phoneNumber?: string;
+  gender?: 'male' | 'female';
 }
 
 export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
@@ -34,20 +39,22 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
         const usersRef = query(collection(db, 'users_public'), where('role', '==', 'student'));
         const usersSnap = await getDocs(usersRef);
         const privateUsersSnap = await getDocs(collection(db, 'users_private'));
-        const privateUserMap = new Map<string, { email?: string }>();
+        const privateUserMap = new Map<string, { email?: string; phone?: string; gender?: 'Male' | 'Female' }>();
         privateUsersSnap.docs.forEach((doc) => {
           privateUserMap.set(doc.id, doc.data() as { email?: string });
         });
-        const userMap = new Map<string, UserProfile>();
+        const userMap = new Map<string, HeatmapStudent>();
         usersSnap.docs.forEach((doc) => {
           const publicData = doc.data();
           userMap.set(doc.id, {
             uid: doc.id,
-            displayName: publicData.displayName || 'Unknown Student',
+            displayName: publicData.displayName || privateUserMap.get(doc.id)?.email?.split('@')[0] || 'Anonymous Student',
             email: privateUserMap.get(doc.id)?.email || '',
             photoURL: publicData.photoURL || '',
             role: 'student',
             createdAt: publicData.createdAt,
+            phoneNumber: privateUserMap.get(doc.id)?.phone,
+            gender: privateUserMap.get(doc.id)?.gender?.toLowerCase() as 'male' | 'female' | undefined,
           });
         });
 
@@ -65,7 +72,7 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
 
           const studentProfile = userMap.get(availData.userId) || {
             uid: availData.userId,
-            displayName: 'Unknown Student',
+            displayName: 'Anonymous Student',
             email: '',
             photoURL: '',
             role: 'student',
