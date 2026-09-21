@@ -53,7 +53,7 @@ export const getFriendsDashboardMetrics = (contacts: Contact[]): FriendsDashboar
     responseStatusCounts,
     followUpNeeded,
     journeyOfFaith: { completed, inProgress },
-    linkedContacts: contacts.filter((contact) => Boolean(contact.linkedUserId)).length,
+    linkedContacts: contacts.filter((contact) => Boolean(contact.linkedByUid)).length,
     recentlyUpdated: [...contacts]
       .sort((first, second) => toMillis(second.updatedAt) - toMillis(first.updatedAt))
       .slice(0, 5),

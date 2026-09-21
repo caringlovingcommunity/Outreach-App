@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { PublicUserProfile } from '../types/user';
+
+const DEFAULT_ELIGIBLE_ROLES: PublicUserProfile['role'][] = ['student', 'organizer'];
 
 interface UserSearchInputProps {
   currentUserId: string;
   selectedUserId?: string;
   selectedUserName?: string;
   onSelectUser: (user: { uid: string; displayName: string } | null) => void;
+  eligibleRoles?: PublicUserProfile['role'][];
 }
 
 export const UserSearchInput: React.FC<UserSearchInputProps> = ({
@@ -15,6 +18,7 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
   selectedUserId,
   selectedUserName,
   onSelectUser,
+  eligibleRoles = DEFAULT_ELIGIBLE_ROLES,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<PublicUserProfile[]>([]);
@@ -47,23 +51,35 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
         const term = searchTerm.trim();
         const q = query(
           collection(db, 'users_public'),
-          where('displayName', '>=', term),
-          where('displayName', '<=', term + '\uf8ff'),
-          limit(5)
+          where('membershipStatus', '==', 'APPROVED'),
         );
 
-        const snap = await getDocs(q);
+        const [snap, contactsSnap] = await Promise.all([
+          getDocs(q),
+          getDocs(collection(db, 'contacts')),
+        ]);
+        const linkedUserIds = new Set(
+          contactsSnap.docs
+            .map((contact) => contact.data().linkedUserId)
+            .filter((uid): uid is string => typeof uid === 'string'),
+        );
         const users: PublicUserProfile[] = [];
         
         snap.forEach((doc) => {
           const data = doc.data() as PublicUserProfile;
           // Exclude self from search results
-          if (data.uid !== currentUserId) {
+          if (
+            data.uid !== currentUserId &&
+            eligibleRoles.includes(data.role) &&
+            data.membershipStatus === 'APPROVED' &&
+            data.displayName.toLowerCase().startsWith(term.toLowerCase()) &&
+            !linkedUserIds.has(data.uid)
+          ) {
             users.push(data);
           }
         });
 
-        setResults(users);
+        setResults(users.slice(0, 5));
         setIsOpen(true);
       } catch (err) {
         console.error('Error searching users:', err);
@@ -74,12 +90,12 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
 
     const timer = setTimeout(fetchUsers, 300); // 300ms debounce
     return () => clearTimeout(timer);
-  }, [searchTerm, currentUserId]);
+  }, [searchTerm, currentUserId, eligibleRoles]);
 
   return (
     <div className="relative" ref={dropdownRef}>
       <label className="app-label">
-        Invited By (Optional)
+        Select student or organizer to disciple
       </label>
 
       {selectedUserId ? (
@@ -101,16 +117,16 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Type student name to search..."
+            placeholder="Type a name to search..."
             className="app-input"
           />
 
           {isOpen && (
-            <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-app-md border border-border bg-surface shadow-app-md">
+            <div className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-app-md border border-border bg-surface shadow-app-md">
               {loading ? (
                 <div className="p-3 text-center text-xs text-muted">Searching...</div>
               ) : results.length === 0 ? (
-                <div className="p-3 text-center text-xs text-muted">No students found</div>
+                <div className="p-3 text-center text-xs text-muted">No eligible accounts found</div>
               ) : (
                 results.map((user) => (
                   <button
@@ -121,7 +137,7 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
                       setSearchTerm('');
                       setIsOpen(false);
                     }}
-                    className="flex w-full items-center gap-3 border-b border-border px-4 py-2.5 text-left text-sm last:border-0 hover:bg-primary-soft"
+                    className="flex w-full min-w-0 items-start gap-3 border-b border-border px-4 py-2.5 text-left text-sm last:border-0 hover:bg-primary-soft"
                   >
                     {user.photoURL ? (
                       <img
@@ -134,10 +150,10 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
                         {user.displayName.charAt(0)}
                       </div>
                     )}
-                    <div>
-                      <div className="font-medium text-text">{user.displayName}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words font-medium text-text">{user.displayName}</div>
                       {user.faculty && (
-                        <div className="text-xs text-muted">{user.faculty}</div>
+                        <div className="break-words text-xs text-muted">{user.faculty}</div>
                       )}
                     </div>
                   </button>

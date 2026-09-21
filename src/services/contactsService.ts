@@ -15,7 +15,7 @@ import {
 import { db } from './firebase';
 import { JOURNEY_OF_FAITH_STEPS } from '../types';
 import type { Contact, ContactInput, FollowUpProgress } from '../types';
-import type { PrivateUserProfile, PublicUserProfile } from '../types/user';
+import type { PublicUserProfile } from '../types/user';
 
 const contactsCollection = collection(db, 'contacts');
 
@@ -34,6 +34,15 @@ export const getLinkedAccountProfile = async (userId: string): Promise<ContactAc
     displayName: profile.displayName,
     photoURL: profile.photoURL || '',
   };
+};
+
+export const getDisciplerForStudent = async (studentId: string): Promise<ContactAccountMatch | null> => {
+  const linkedContacts = await getDocs(query(
+    contactsCollection,
+    where('linkedUserId', '==', studentId),
+  ));
+  const linkedByUid = linkedContacts.docs[0]?.data().linkedByUid;
+  return typeof linkedByUid === 'string' ? getLinkedAccountProfile(linkedByUid) : null;
 };
 
 const cleanOptional = (value?: string): string | undefined => {
@@ -148,23 +157,6 @@ export const unlinkContactFromUser = async (contactId: string): Promise<void> =>
     linkedByUid: deleteField(),
     updatedAt: serverTimestamp(),
   });
-};
-
-const normalizePhone = (value?: string): string => (value || '').replace(/[^0-9+]/g, '');
-
-export const findContactAccountMatch = async (contact: Contact): Promise<ContactAccountMatch | null> => {
-  const phoneNumber = normalizePhone(contact.phoneNumber);
-  if (!phoneNumber) return null;
-  const privateSnapshot = await getDocs(collection(db, 'users_private'));
-  const match = privateSnapshot.docs
-    .map((profile) => ({ id: profile.id, data: profile.data() as PrivateUserProfile }))
-    .find((profile) => profile.id !== contact.createdById && normalizePhone(profile.data.phone) === phoneNumber);
-  if (!match) return null;
-  const publicSnapshot = await getDoc(doc(db, 'users_public', match.id));
-  if (!publicSnapshot.exists()) return null;
-  const publicProfile = publicSnapshot.data() as PublicUserProfile;
-  if (publicProfile.role !== 'student' || publicProfile.membershipStatus !== 'APPROVED') return null;
-  return { uid: match.id, displayName: publicProfile.displayName || 'Registered student', photoURL: publicProfile.photoURL || '' };
 };
 
 export const deleteContact = async (contactId: string): Promise<void> => {

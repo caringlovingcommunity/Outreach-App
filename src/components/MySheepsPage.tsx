@@ -5,12 +5,12 @@ import { useContacts } from "../hooks/useContacts";
 import {
   createContact,
   deleteContact,
-  findContactAccountMatch,
   getLinkedAccountProfile,
   linkContactToUser,
   unlinkContactFromUser,
   updateContact,
 } from "../services/contactsService";
+import { UserSearchInput } from "./UserSearchInput";
 import type { ContactAccountMatch } from "../services/contactsService";
 import type {
   Contact,
@@ -42,6 +42,7 @@ const emptyInput = (): ContactInput => ({
   remarks: "",
 });
 const DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const DISCIPLE_ELIGIBLE_ROLES = ["student", "organizer"] as const;
 const canDeleteContact = (contact: Contact): boolean => {
   if (contact.linkedUserId) return false;
   const createdAt = contact.createdAt;
@@ -173,12 +174,10 @@ export const MySheepsPage: React.FC = () => {
     setSelectedContact(contact);
     setAccountMatch(null);
     setLinkerAccount(null);
-    setMatchLoading(Boolean(contact.linkedByUid) || user?.role === "organizer");
+    setMatchLoading(Boolean(contact.linkedByUid));
     try {
       if (contact.linkedByUid) {
         setLinkerAccount(await getLinkedAccountProfile(contact.linkedByUid));
-      } else if (user?.role === "organizer") {
-        setAccountMatch(await findContactAccountMatch(contact));
       }
     } catch (matchError) {
       console.error("Failed to find account match:", matchError);
@@ -596,8 +595,8 @@ export const MySheepsPage: React.FC = () => {
         </div>
       )}
       {selectedContact && (
-        <div className="app-modal-backdrop items-end justify-center sm:items-center">
-          <section className="app-modal max-w-lg">
+        <div className="app-modal-backdrop items-center justify-center">
+          <section className="app-modal min-w-0 max-h-[calc(100vh-2rem)] max-w-xl overflow-visible">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -645,7 +644,7 @@ export const MySheepsPage: React.FC = () => {
               ) : accountMatch ? (
                 <div className="mt-3 rounded-app-md border border-primary-muted bg-primary-soft p-3">
                   <p className="text-sm font-semibold text-text">
-                    Matching user found: {accountMatch.displayName}
+                    Selected student: {accountMatch.displayName}
                   </p>
                   <button
                     type="button"
@@ -658,13 +657,25 @@ export const MySheepsPage: React.FC = () => {
                     className="app-button-primary mt-3"
                   >
                     <Link2 className="h-4 w-4" />
-                    {linking ? "Linking..." : "Link Disciple"}
+                      {linking
+                        ? "Linking..."
+                        : `Disciple ${selectedContact.gender === "female" ? "her" : "him"}`}
                   </button>
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-muted">
-                  No exact approved student account match found.
-                </p>
+                <div className="mt-3">
+                  <UserSearchInput
+                    currentUserId={user?.uid || ""}
+                    onSelectUser={(selected) =>
+                      setAccountMatch(
+                        selected
+                          ? { ...selected, photoURL: "" }
+                          : null,
+                      )
+                    }
+                    eligibleRoles={DISCIPLE_ELIGIBLE_ROLES as unknown as ("student" | "organizer")[]}
+                  />
+                </div>
               )}
             </div>
             {canDeleteContact(selectedContact) &&

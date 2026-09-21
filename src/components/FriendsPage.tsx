@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Clock3, Link2, MoreVertical, Search, Users } from 'lucide-react';
+import { getDisciplerForStudent } from '../services/contactsService';
 import { getTeamFriendsWithContacts } from '../services/friendsService';
 import type { LinkedTeamFriend } from '../services/friendsService';
 import type { Contact } from '../types';
@@ -99,6 +100,8 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
   const [selectedPerson, setSelectedPerson] = useState<LinkedTeamFriend | null>(null);
   const [dashboardFilter, setDashboardFilter] = useState<DashboardFilter | null>(null);
   const [dashboardFilterValue, setDashboardFilterValue] = useState<string | null>(null);
+  const [discipler, setDiscipler] = useState<{ displayName: string; photoURL: string } | null>(null);
+  const [disciplerLoading, setDisciplerLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,6 +115,22 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
       })
       .finally(() => {
         if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId, isStudent]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getDisciplerForStudent(currentUserId)
+      .then((profile) => {
+        if (isMounted) setDiscipler(profile);
+      })
+      .finally(() => {
+        if (isMounted) setDisciplerLoading(false);
       });
 
     return () => {
@@ -257,6 +276,26 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
               className="app-input pl-10"
             />
           </label>
+
+          <section className="mt-5 border-b border-border pb-4">
+            <h2 className="text-lg font-bold text-text">Your Discipler</h2>
+            {disciplerLoading ? (
+              <p className="mt-2 text-sm text-muted">Loading discipler...</p>
+            ) : discipler ? (
+              <div className="mt-3 flex items-center gap-3">
+                {discipler.photoURL ? (
+                  <img src={discipler.photoURL} alt="" className="h-11 w-11 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+                    {discipler.displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <p className="font-semibold text-text">{discipler.displayName}</p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted">No discipler has been assigned yet.</p>
+            )}
+          </section>
           {!isStudent && <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label>
               <span className="sr-only">Filter friends by</span>
