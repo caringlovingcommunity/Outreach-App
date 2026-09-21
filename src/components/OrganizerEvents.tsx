@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { CalendarDays, Loader2, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
 import { db } from '../services/firebase';
+import type { UserProfile } from '../types';
+import { EventParticipation } from './EventParticipation';
+import { SlotPairingModal, type AvailableStudent } from './organizer/SlotPairingModal';
+import { formatEventDate, getEventDateCountdown, subscribeToEventSlotSignups, subscribeToEvents, slotId } from '../services/eventsService';
 
 interface EventDateEntry {
   date: string;
@@ -11,6 +15,11 @@ interface EventDateEntry {
 interface EventRecord {
   id: string;
   name: string;
+  description?: string;
+  location?: string;
+  imageUrl?: string;
+  createdByUid?: string;
+  createdByName?: string;
   dates: EventDateEntry[];
 }
 
@@ -18,7 +27,11 @@ const DEFAULT_SLOTS = ['08:00 - 11:00', '14:00 - 17:00', '19:00 - 22:00'];
 
 const emptyDateEntry = (): EventDateEntry => ({ date: '', timeSlots: [...DEFAULT_SLOTS] });
 
-export const OrganizerEvents: React.FC = () => {
+interface Props {
+  user: UserProfile;
+}
+
+export const OrganizerEvents: React.FC<Props> = ({ user }) => {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,27 +41,41 @@ export const OrganizerEvents: React.FC = () => {
   const [viewingEvent, setViewingEvent] = useState<EventRecord | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [dates, setDates] = useState<EventDateEntry[]>([emptyDateEntry()]);
-
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      const snapshot = await getDocs(query(collection(db, 'events'), orderBy('createdAt', 'desc')));
-      setEvents(snapshot.docs.map((eventDoc) => ({
-        id: eventDoc.id,
-        ...(eventDoc.data() as Omit<EventRecord, 'id'>),
-      })));
-    } catch (loadError) {
-      console.error('Failed to load events:', loadError);
-      setError('Unable to load events. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [pairingSlot, setPairingSlot] = useState<{
+    eventId: string;
+    eventCreatorUid: string;
+    label: string;
+    slotId: string;
+    participants: AvailableStudent[];
+  } | null>(null);
 
   useEffect(() => {
-    void loadEvents();
+    setLoading(true);
+    const unsubscribe = subscribeToEvents((nextEvents) => {
+      setEvents(nextEvents.map((event) => ({
+        ...event,
+        dates: event.dates.map((date) => ({ date: date.date, timeSlots: date.slots.map((slot) => slot.label) })),
+      })));
+      setLoading(false);
+    }, () => {
+      setError('Unable to load events. Please try again.');
+      setLoading(false);
+    });
+    return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!pairingSlot) return undefined;
+    return subscribeToEventSlotSignups(pairingSlot.eventId, pairingSlot.slotId, (signups) => {
+      setPairingSlot((current) => current
+        ? { ...current, participants: signups.map((signup) => ({ uid: signup.userId, displayName: signup.displayName })) }
+        : current);
+    }, () => setError('Unable to load participants for this slot.'));
+  }, [pairingSlot?.eventId, pairingSlot?.slotId]);
 
   const updateDate = (index: number, value: string) => {
     setDates((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, date: value } : entry));
@@ -80,6 +107,9 @@ export const OrganizerEvents: React.FC = () => {
 
   const resetForm = () => {
     setName('');
+    setDescription('');
+    setLocation('');
+    setImageUrl('');
     setDates([emptyDateEntry()]);
     setEditingEventId(null);
     setShowForm(false);
@@ -92,6 +122,9 @@ export const OrganizerEvents: React.FC = () => {
 
   const startEdit = (targetEvent: EventRecord) => {
     setName(targetEvent.name);
+    setDescription(targetEvent.description || '');
+    setLocation(targetEvent.location || '');
+    setImageUrl(targetEvent.imageUrl || '');
     setDates(targetEvent.dates.map((entry) => ({ date: entry.date, timeSlots: [...entry.timeSlots] })));
     setEditingEventId(targetEvent.id);
     setViewingEvent(null);
@@ -114,17 +147,25 @@ export const OrganizerEvents: React.FC = () => {
       if (editingEventId) {
         await updateDoc(doc(db, 'events', editingEventId), {
           name: name.trim(),
+          description: description.trim(),
+          location: location.trim(),
+          imageUrl: imageUrl.trim(),
           dates: cleanedDates,
+          updatedAt: serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, 'events'), {
           name: name.trim(),
+          description: description.trim(),
+          location: location.trim(),
+          imageUrl: imageUrl.trim(),
+          createdByUid: user.uid,
+          createdByName: user.displayName,
           dates: cleanedDates,
           createdAt: serverTimestamp(),
         });
       }
       resetForm();
-      await loadEvents();
     } catch (saveError) {
       console.error('Failed to save event:', saveError);
       setError('Unable to save the event. Please check your permissions.');
@@ -140,7 +181,6 @@ export const OrganizerEvents: React.FC = () => {
       setDeletingId(eventId);
       await deleteDoc(doc(db, 'events', eventId));
       setViewingEvent(null);
-      await loadEvents();
     } catch (deleteError) {
       console.error('Failed to delete event:', deleteError);
       setError('Unable to delete the event. Please check your permissions.');
@@ -149,8 +189,13 @@ export const OrganizerEvents: React.FC = () => {
     }
   };
 
+  const openPairing = (event: EventRecord, date: EventDateEntry, label: string) => {
+    const normalizedSlotId = slotId(date.date, label);
+    setPairingSlot({ eventId: event.id, eventCreatorUid: event.createdByUid || user.uid, label: `${formatEventDate(date.date)} • ${label}`, slotId: normalizedSlotId, participants: [] });
+  };
+
   return (
-    <section className="space-y-5">
+    <section className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">Event planning</p>
@@ -175,6 +220,21 @@ export const OrganizerEvents: React.FC = () => {
           <label className="mt-4 block">
             <span className="app-label">Event name</span>
             <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Community Food Drive" className="app-input" />
+          </label>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="app-label">Location</span>
+              <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="e.g. CLC Centre" className="app-input" />
+            </label>
+            <label className="block">
+              <span className="app-label">Image or event link</span>
+              <input type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://..." className="app-input" />
+            </label>
+          </div>
+          <label className="mt-4 block">
+            <span className="app-label">Description</span>
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What should participants know?" rows={3} className="app-input" />
           </label>
 
           <div className="mt-5">
@@ -244,7 +304,7 @@ export const OrganizerEvents: React.FC = () => {
                   <div key={index} className="flex items-start gap-2">
                     <CalendarDays className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                     <div>
-                      <div className="font-medium text-text">{entry.date}</div>
+                      <div className="flex flex-wrap items-center gap-2 font-medium text-text">{formatEventDate(entry.date)}<span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary">{getEventDateCountdown(entry.date)}</span></div>
                       <div className="mt-0.5 flex items-start gap-1.5 text-xs text-muted">
                         <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                         <span>{entry.timeSlots.join(' • ') || 'No time slots configured'}</span>
@@ -295,11 +355,20 @@ export const OrganizerEvents: React.FC = () => {
                 <div key={index} className="rounded-app-md border border-border bg-surface-muted p-3">
                   <div className="flex items-center gap-2 font-medium text-text">
                     <CalendarDays className="h-4 w-4 text-primary" />
-                    {entry.date}
+                    <span>{formatEventDate(entry.date)}</span>
+                    <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary">{getEventDateCountdown(entry.date)}</span>
                   </div>
                   <div className="mt-1.5 flex items-start gap-1.5 text-xs text-muted">
                     <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                    <span>{entry.timeSlots.join(' • ') || 'No time slots configured'}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {entry.timeSlots.length ? (
+                        (user.role === 'admin' || viewingEvent.createdByUid === user.uid) ? entry.timeSlots.map((label) => (
+                          <button key={label} type="button" onClick={() => void openPairing(viewingEvent, entry, label)} className="app-button-text min-h-8 px-2 py-1 text-xs">
+                            Manage {label}
+                          </button>
+                        )) : <span>{entry.timeSlots.join(' • ')}</span>
+                      ) : <span>No time slots configured</span>}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -317,6 +386,22 @@ export const OrganizerEvents: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      <div className="border-t border-border pt-8">
+        <EventParticipation user={user} heading={false} />
+      </div>
+
+      {pairingSlot && (
+        <SlotPairingModal
+          isOpen
+          onClose={() => setPairingSlot(null)}
+          eventId={pairingSlot.eventId}
+          slotId={pairingSlot.slotId}
+          createdByUid={pairingSlot.eventCreatorUid}
+          slotLabel={pairingSlot.label}
+          availableStudents={pairingSlot.participants}
+        />
       )}
     </section>
   );

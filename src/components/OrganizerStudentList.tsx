@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getDisciplerForStudent } from '../services/contactsService';
-import { getAllApprovedUsers, getUserFullDetail, type DirectoryUser } from '../services/organizerService';
+import { getUserFullDetail, subscribeToApprovedUsers, type DirectoryUser } from '../services/organizerService';
 import type { PublicUserProfile } from '../types/user';
 import { FACULTIES } from '../constants/unimasData';
 
@@ -31,28 +31,24 @@ export const OrganizerStudentList: React.FC = () => {
 
   // 1. Check authorization & fetch public student directory
   useEffect(() => {
-    const fetchDirectory = async () => {
+    if (user?.role === 'organizer' || user?.role === 'admin') {
       setLoading(true);
       setError(null);
-      try {
-        const data = await getAllApprovedUsers();
+      const unsubscribe = subscribeToApprovedUsers((data) => {
         setStudents(data);
-        const disciplerEntries = await Promise.all(data.map(async (student) => {
+        setLoading(false);
+        void Promise.all(data.map(async (student) => {
           const discipler = await getDisciplerForStudent(student.uid);
           return discipler ? [student.uid, discipler.displayName] as const : null;
-        }));
-        setDisciplerNames(Object.fromEntries(disciplerEntries.filter(Boolean) as [string, string][]));
-      } catch (err: any) {
+        })).then((entries) => setDisciplerNames(Object.fromEntries(entries.filter(Boolean) as [string, string][])));
+      }, (err) => {
         console.error('Error fetching student list:', err);
         setError(err.message || 'Failed to load student directory.');
-      } finally {
         setLoading(false);
-      }
-    };
-
-    if (user?.role === 'organizer' || user?.role === 'admin') {
-      fetchDirectory();
+      });
+      return unsubscribe;
     }
+    setLoading(false);
   }, [user]);
 
   // 2. Client-side filtering logic

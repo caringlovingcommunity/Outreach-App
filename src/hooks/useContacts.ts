@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getCommunityContacts, getFilteredContacts, getMyContacts } from '../services/contactsService';
+import { getCommunityContacts, getFilteredContacts, getMyContacts, subscribeToContacts } from '../services/contactsService';
 import type { Contact } from '../types';
 
 export const useContacts = () => {
@@ -32,7 +32,24 @@ export const useContacts = () => {
     }
   }, [user]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+    setError(null);
+    return subscribeToContacts(user.uid, (nextContacts) => {
+      setMyContacts(nextContacts.myContacts);
+      setCommunityContacts(nextContacts.communityContacts);
+      setFilteredContacts(nextContacts.filteredContacts);
+      setLoading(false);
+    }, () => {
+      setError('Unable to load contacts. Please try again.');
+      setLoading(false);
+    });
+  }, [user]);
 
   return { myContacts, communityContacts, filteredContacts, loading, error, refresh };
 };

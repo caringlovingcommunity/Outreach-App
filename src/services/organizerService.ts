@@ -202,6 +202,15 @@ export const getAllApprovedUsers = async (): Promise<PublicUserProfile[]> => {
   }
 };
 
+export const subscribeToApprovedUsers = (
+  onChange: (users: PublicUserProfile[]) => void,
+  onError: (error: Error) => void,
+) => onSnapshot(
+  query(collection(db, 'users_public'), where('membershipStatus', '==', 'APPROVED'), orderBy('displayName', 'asc'), limit(100)),
+  (snapshot) => onChange(snapshot.docs.map((userDoc) => userDoc.data() as PublicUserProfile)),
+  onError,
+);
+
 /**
  * Fetches full profile (Public + Private) for a specific student.
  * Only callable by authenticated organizers.

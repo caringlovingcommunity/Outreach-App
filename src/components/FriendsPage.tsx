@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Clock3, Link2, MoreVertical, Search, Users } from 'lucide-react';
 import { getDisciplerForStudent } from '../services/contactsService';
-import { getTeamFriendsWithContacts } from '../services/friendsService';
+import { subscribeToTeamFriendsWithContacts } from '../services/friendsService';
 import type { LinkedTeamFriend } from '../services/friendsService';
 import type { Contact } from '../types';
 import { useContacts } from '../hooks/useContacts';
@@ -104,22 +104,21 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
   const [disciplerLoading, setDisciplerLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+    setLoading(true);
+    setError(null);
+    const unsubscribe = subscribeToTeamFriendsWithContacts(
+      !isStudent,
+      (profiles) => {
+        setPeople(profiles.filter((profile) => profile.uid !== currentUserId));
+        setLoading(false);
+      },
+      () => {
+        setError('Unable to load the team right now.');
+        setLoading(false);
+      },
+    );
 
-    getTeamFriendsWithContacts(!isStudent)
-      .then((profiles) => {
-        if (isMounted) setPeople(profiles.filter((profile) => profile.uid !== currentUserId));
-      })
-      .catch(() => {
-        if (isMounted) setError('Unable to load the team right now.');
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    return unsubscribe;
   }, [currentUserId, isStudent]);
 
   useEffect(() => {

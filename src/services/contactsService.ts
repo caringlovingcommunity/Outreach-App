@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -127,6 +128,61 @@ export const getFilteredContacts = async (userId: string): Promise<Contact[]> =>
 export const getCommunityContacts = async (): Promise<Contact[]> => {
   const snapshot = await getDocs(query(contactsCollection, orderBy('createdAt', 'desc')));
   return snapshot.docs.map(mapContact);
+};
+
+export const subscribeToContacts = (
+  userId: string,
+  onChange: (contacts: { myContacts: Contact[]; communityContacts: Contact[]; filteredContacts: Contact[] }) => void,
+  onError: (error: Error) => void,
+) => {
+  const ownedQuery = query(contactsCollection, where('createdById', '==', userId), orderBy('createdAt', 'desc'));
+  const linkedQuery = query(contactsCollection, where('linkedByUid', '==', userId), orderBy('createdAt', 'desc'));
+  const communityQuery = query(contactsCollection, orderBy('createdAt', 'desc'));
+  const filteredProfilesQuery = query(collection(db, 'users_public'), where('membershipStatus', '==', 'FILTERED'));
+  let ownedContacts: Contact[] = [];
+  let linkedContacts: Contact[] = [];
+  let communityContacts: Contact[] = [];
+  let filteredUserIds = new Set<string>();
+  let loaded = { owned: false, linked: false, community: false, filtered: false };
+
+  const emit = () => {
+    if (!Object.values(loaded).every(Boolean)) return;
+    const myContacts = new Map<string, Contact>();
+    [...ownedContacts, ...linkedContacts].forEach((contact) => myContacts.set(contact.id, contact));
+    onChange({
+      myContacts: [...myContacts.values()].sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0)),
+      communityContacts,
+      filteredContacts: [...myContacts.values()].filter((contact) => Boolean(contact.linkedUserId && filteredUserIds.has(contact.linkedUserId))),
+    });
+  };
+
+  const unsubscribeOwned = onSnapshot(ownedQuery, (snapshot) => {
+    ownedContacts = snapshot.docs.map(mapContact);
+    loaded.owned = true;
+    emit();
+  }, onError);
+  const unsubscribeLinked = onSnapshot(linkedQuery, (snapshot) => {
+    linkedContacts = snapshot.docs.map(mapContact);
+    loaded.linked = true;
+    emit();
+  }, onError);
+  const unsubscribeCommunity = onSnapshot(communityQuery, (snapshot) => {
+    communityContacts = snapshot.docs.map(mapContact);
+    loaded.community = true;
+    emit();
+  }, onError);
+  const unsubscribeFiltered = onSnapshot(filteredProfilesQuery, (snapshot) => {
+    filteredUserIds = new Set(snapshot.docs.map((profile) => profile.id));
+    loaded.filtered = true;
+    emit();
+  }, onError);
+
+  return () => {
+    unsubscribeOwned();
+    unsubscribeLinked();
+    unsubscribeCommunity();
+    unsubscribeFiltered();
+  };
 };
 
 export const updateContact = async (

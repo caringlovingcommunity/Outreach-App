@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import type { Semester, UserProfile, Availability } from '../types';
@@ -23,22 +23,20 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!user || user.role !== 'organizer' || !activeSemester) {
+      setLoading(false);
+      return undefined;
+    }
 
-    const fetchHeatmapData = async () => {
-      if (!user || user.role !== 'organizer' || !activeSemester) {
-        setLoading(false);
-        return;
-      }
+    setLoading(true);
+    setError(null);
+    let usersSnap: QuerySnapshot<DocumentData> | null = null;
+    let privateUsersSnap: QuerySnapshot<DocumentData> | null = null;
+    let availSnap: QuerySnapshot<DocumentData> | null = null;
 
+    const processSnapshots = () => {
+      if (!usersSnap || !privateUsersSnap || !availSnap) return;
       try {
-        setLoading(true);
-        setError(null);
-
-        // 1. Fetch all student profiles for mapping names/photos
-        const usersRef = query(collection(db, 'users_public'), where('role', '==', 'student'));
-        const usersSnap = await getDocs(usersRef);
-        const privateUsersSnap = await getDocs(collection(db, 'users_private'));
         const privateUserMap = new Map<string, { email?: string; phone?: string; gender?: 'Male' | 'Female' }>();
         privateUsersSnap.docs.forEach((doc) => {
           privateUserMap.set(doc.id, doc.data() as { email?: string });
@@ -57,11 +55,6 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
             gender: privateUserMap.get(doc.id)?.gender?.toLowerCase() as 'male' | 'female' | undefined,
           });
         });
-
-        // 2. Fetch all availability submissions for the active semester
-        const availRef = collection(db, 'availabilities');
-        const availQuery = query(availRef, where('semesterId', '==', activeSemester.semesterId));
-        const availSnap = await getDocs(availQuery);
 
         const slotMap: Record<string, SlotAggregation> = {};
         const submittingUserIds = new Set<string>();
@@ -92,26 +85,28 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
           });
         });
 
-        if (isMounted) {
-          setAggregations(slotMap);
-          setTotalStudentsSubmitted(submittingUserIds.size);
-        }
-      } catch (err: any) {
-        console.error('Error fetching organizer heatmap data:', err);
-        if (isMounted) {
-          setError('Failed to load team availability. Check Firestore permissions.');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setAggregations(slotMap);
+        setTotalStudentsSubmitted(submittingUserIds.size);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error processing organizer heatmap data:', err);
+        setError('Failed to load team availability. Check Firestore permissions.');
+        setLoading(false);
       }
     };
 
-    fetchHeatmapData();
+    const handleError = () => {
+      setError('Failed to load team availability. Check Firestore permissions.');
+      setLoading(false);
+    };
+    const unsubscribeUsers = onSnapshot(query(collection(db, 'users_public'), where('role', '==', 'student')), (snapshot) => { usersSnap = snapshot; processSnapshots(); }, handleError);
+    const unsubscribePrivateUsers = onSnapshot(collection(db, 'users_private'), (snapshot) => { privateUsersSnap = snapshot; processSnapshots(); }, handleError);
+    const unsubscribeAvailability = onSnapshot(query(collection(db, 'availabilities'), where('semesterId', '==', activeSemester.semesterId)), (snapshot) => { availSnap = snapshot; processSnapshots(); }, handleError);
 
     return () => {
-      isMounted = false;
+      unsubscribeUsers();
+      unsubscribePrivateUsers();
+      unsubscribeAvailability();
     };
   }, [user, activeSemester]);
 

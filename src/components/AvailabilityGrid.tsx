@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAvailability } from '../hooks/useAvailability';
-import { Calendar, Clock, Save, CheckCircle, AlertCircle, Loader2, Check } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertCircle, Loader2, Check } from 'lucide-react';
 
 const DAYS = [
   { id: 'MON', label: 'Mon', fullLabel: 'Monday' },
@@ -27,7 +27,6 @@ export const AvailabilityGrid: React.FC = () => {
     error,
     saveSuccess,
     toggleSlot,
-    saveAvailability,
   } = useAvailability();
 
   const [activeDay, setActiveDay] = useState<string>('MON');
@@ -82,7 +81,14 @@ export const AvailabilityGrid: React.FC = () => {
       {saveSuccess && (
         <div className="app-alert-success text-xs">
           <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          Availability successfully saved!
+          Availability saved automatically.
+        </div>
+      )}
+
+      {saving && (
+        <div className="app-panel flex items-center gap-2 p-3 text-xs text-muted">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          Saving availability...
         </div>
       )}
 
@@ -138,7 +144,7 @@ export const AvailabilityGrid: React.FC = () => {
             <button
               key={slot.id}
               type="button"
-              onClick={() => toggleSlot(slotKey)}
+              onClick={() => void toggleSlot(slotKey)}
               className={`flex w-full items-center justify-between rounded-app-lg border p-4 text-left transition-colors active:scale-[0.99] ${
                 isSelected
                   ? 'border-primary bg-primary-soft text-text shadow-app-sm'
@@ -173,29 +179,6 @@ export const AvailabilityGrid: React.FC = () => {
         })}
       </div>
 
-{/* Bottom Save Action Bar */}
-      <div className="-mx-1 mt-6 flex justify-center border-t border-border bg-surface p-4">
-        <div className="w-full max-w-md">
-          <button
-            type="button"
-            onClick={saveAvailability}
-            disabled={saving}
-            className="app-button-primary w-full py-3.5 shadow-app-md"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving Changes...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Availability
-              </>
-            )}
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

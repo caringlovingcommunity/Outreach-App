@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { BarChart3, CalendarDays, ClipboardCheck, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
+import { ClipboardCheck, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
 import { AdminUserManagementPage } from './AdminUserManagementPage';
+import { OrganizerAvailabilityWorkspace } from './OrganizerAvailabilityWorkspace';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
-import { AvailabilityGrid } from './AvailabilityGrid';
-import { OrganizerHeatmap } from './OrganizerHeatmap';
 import { OrganizerEvents } from './OrganizerEvents';
 import { ProfilePage } from './ProfilePage';
-import { SubmissionTracker } from './SubmissionTracker';
 import { OrganizerStudentList } from './OrganizerStudentList';
 import { FriendsPage } from './FriendsPage';
 import { OrganizerApprovalsPage } from './OrganizerApprovalsPage';
@@ -20,21 +18,19 @@ interface OrganizerDashboardProps {
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'approvals' | 'friends' | 'profile' | 'user_management';
+type OrganizerTab = 'availability_workspace' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'my_availability', label: 'My Availability', icon: CalendarDays },
-  { id: 'heatmap', label: 'Team Heatmap', icon: BarChart3 },
+  { id: 'availability_workspace', label: 'Availability', icon: Users },
   { id: 'events', label: 'Events', icon: PartyPopper },
   { id: 'student_directory', label: 'Directory', icon: Users },
-  { id: 'submission_progress', label: 'Progress', icon: BarChart3 },
   { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
 ];
 
 export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, logout }) => {
   const { activeSemester } = useAvailability();
-  const [activeTab, setActiveTab] = useState<OrganizerTab>('my_availability');
+  const [activeTab, setActiveTab] = useState<OrganizerTab>('availability_workspace');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -123,21 +119,17 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
         {activeTab === 'user_management' ? (
           <AdminUserManagementPage user={user} />
         ) : activeTab === 'profile' ? (
-          <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={() => setActiveTab('my_availability')} />
+          <ProfilePage user={user} onBack={() => setActiveTab('availability_workspace')} onProfileUpdated={() => setActiveTab('availability_workspace')} />
         ) : activeTab === 'friends' ? (
           <FriendsPage currentUserId={user.uid} />
-        ) : activeTab === 'submission_progress' ? (
-          <SubmissionTracker activeSemesterId={activeSemester?.semesterId} activeSemesterName={activeSemester?.name} />
         ) : activeTab === 'student_directory' ? (
           <OrganizerStudentList />
         ) : activeTab === 'approvals' ? (
           <OrganizerApprovalsPage />
         ) : activeTab === 'events' ? (
-          <OrganizerEvents />
-        ) : activeTab === 'heatmap' ? (
-          <OrganizerHeatmap activeSemester={activeSemester} />
+          <OrganizerEvents user={user} />
         ) : (
-          <AvailabilityGrid />
+          <OrganizerAvailabilityWorkspace activeSemester={activeSemester} />
         )}
       </main>
 

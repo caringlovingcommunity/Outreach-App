@@ -104,27 +104,23 @@ export const useAvailability = () => {
     };
   }, [user]);
 
-  // 2. Toggle a slot selection in local state
-  const toggleSlot = (slotKey: string) => {
-    setSaveSuccess(false); // Reset success indicator on modification
-    setSelectedSlots((prev) =>
-      prev.includes(slotKey)
-        ? prev.filter((key) => key !== slotKey)
-        : [...prev, slotKey]
-    );
-  };
-
-  // 3. Persist availability slots to Firestore
-  const saveAvailability = async (): Promise<boolean> => {
+  // Toggle locally first, then persist the resulting selection.
+  const toggleSlot = async (slotKey: string) => {
     if (!user || !activeSemester) {
-      setError('Cannot save: User or Active Semester is missing.');
-      return false;
+      setError('Cannot update availability: User or Active Semester is missing.');
+      return;
     }
+
+    const nextSlots = selectedSlots.includes(slotKey)
+      ? selectedSlots.filter((key) => key !== slotKey)
+      : [...selectedSlots, slotKey];
+
+    setSelectedSlots(nextSlots);
+    setSaveSuccess(false);
 
     try {
       setSaving(true);
       setError(null);
-      setSaveSuccess(false);
 
       const availabilityId = `${user.uid}_${activeSemester.semesterId}`;
       const availabilityRef = doc(db, 'availabilities', availabilityId);
@@ -132,16 +128,15 @@ export const useAvailability = () => {
       const payload = {
         userId: user.uid,
         semesterId: activeSemester.semesterId,
-        slots: selectedSlots,
+        slots: nextSlots,
         updatedAt: serverTimestamp(),
       };
 
       await setDoc(availabilityRef, payload, { merge: true });
 
       setSaveSuccess(true);
-      return true;
     } catch (err: any) {
-      console.error('Error saving availability:', err);
+      console.error('Error updating availability:', err);
       setError('Failed to save availability. Please try again.');
       return false;
     } finally {
@@ -157,6 +152,5 @@ export const useAvailability = () => {
     error,
     saveSuccess,
     toggleSlot,
-    saveAvailability,
   };
 };
