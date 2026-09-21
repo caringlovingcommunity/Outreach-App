@@ -32,11 +32,19 @@ export interface Availability {
 export type Gender = 'male' | 'female';
 export type GospelStatus = 'not_started' | 'gospel_conversation' | 'gospel_presentation';
 export type ResponseStatus = 'pray_receive_christ' | 'already_christian' | 'not_ready' | 'say_yes_follow_up';
+export const JOURNEY_OF_FAITH_STEPS = ['vision_cast', 'jof1_1', 'jof1_2', 'jof1_3', 'jof1_4', 'jof1_5', 'jof1_6', 'jof1_7', 'jof1_8'] as const;
+export type JourneyOfFaithStep = typeof JOURNEY_OF_FAITH_STEPS[number];
 
 export interface FollowUpProgress {
+  vision_cast: boolean;
   jof1_1: boolean;
   jof1_2: boolean;
   jof1_3: boolean;
+  jof1_4: boolean;
+  jof1_5: boolean;
+  jof1_6: boolean;
+  jof1_7: boolean;
+  jof1_8: boolean;
 }
 
 export interface Contact {

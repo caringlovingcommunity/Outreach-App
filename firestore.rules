@@ -120,6 +120,18 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    function hasNoJourneyProgress(data) {
+      return (!('vision_cast' in data.followUpProgress) || !data.followUpProgress.vision_cast) &&
+        (!('jof1_1' in data.followUpProgress) || !data.followUpProgress.jof1_1) &&
+        (!('jof1_2' in data.followUpProgress) || !data.followUpProgress.jof1_2) &&
+        (!('jof1_3' in data.followUpProgress) || !data.followUpProgress.jof1_3) &&
+        (!('jof1_4' in data.followUpProgress) || !data.followUpProgress.jof1_4) &&
+        (!('jof1_5' in data.followUpProgress) || !data.followUpProgress.jof1_5) &&
+        (!('jof1_6' in data.followUpProgress) || !data.followUpProgress.jof1_6) &&
+        (!('jof1_7' in data.followUpProgress) || !data.followUpProgress.jof1_7) &&
+        (!('jof1_8' in data.followUpProgress) || !data.followUpProgress.jof1_8);
+    }
+
     function validContact(data) {
       return data.keys().hasOnly([
           'createdById', 'createdByName', 'name', 'phoneNumber', 'gender',
@@ -135,22 +147,29 @@ service cloud.firestore {
           'pray_receive_christ', 'already_christian', 'not_ready', 'say_yes_follow_up'
         ]) &&
         data.followUpProgress is map &&
-        data.followUpProgress.keys().hasOnly(['jof1_1', 'jof1_2', 'jof1_3']) &&
-        data.followUpProgress.jof1_1 is bool &&
-        data.followUpProgress.jof1_2 is bool &&
-        data.followUpProgress.jof1_3 is bool &&
+        data.followUpProgress.keys().hasOnly([
+          'vision_cast', 'jof1_1', 'jof1_2', 'jof1_3', 'jof1_4',
+          'jof1_5', 'jof1_6', 'jof1_7', 'jof1_8'
+        ]) &&
+        (!('vision_cast' in data.followUpProgress) || data.followUpProgress.vision_cast is bool) &&
+        (!('jof1_1' in data.followUpProgress) || data.followUpProgress.jof1_1 is bool) &&
+        (!('jof1_2' in data.followUpProgress) || data.followUpProgress.jof1_2 is bool) &&
+        (!('jof1_3' in data.followUpProgress) || data.followUpProgress.jof1_3 is bool) &&
+        (!('jof1_4' in data.followUpProgress) || data.followUpProgress.jof1_4 is bool) &&
+        (!('jof1_5' in data.followUpProgress) || data.followUpProgress.jof1_5 is bool) &&
+        (!('jof1_6' in data.followUpProgress) || data.followUpProgress.jof1_6 is bool) &&
+        (!('jof1_7' in data.followUpProgress) || data.followUpProgress.jof1_7 is bool) &&
+        (!('jof1_8' in data.followUpProgress) || data.followUpProgress.jof1_8 is bool) &&
         (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 40)) &&
         (!('remarks' in data) || (data.remarks is string && data.remarks.size() <= 2000)) &&
         (!('linkedUserId' in data) || data.linkedUserId is string) &&
         (!('linkedAt' in data) || data.linkedAt is timestamp) &&
         (!('linkedByUid' in data) || data.linkedByUid is string) &&
         (!('photoUrl' in data) || data.photoUrl == null) &&
-        (data.gospelStatus != 'not_started' || (data.responseStatuses.size() == 0 &&
-          !data.followUpProgress.jof1_1 && !data.followUpProgress.jof1_2 && !data.followUpProgress.jof1_3)) &&
+        (data.gospelStatus != 'not_started' || (data.responseStatuses.size() == 0 && hasNoJourneyProgress(data))) &&
         (!data.responseStatuses.hasAny(['not_ready']) ||
-          (data.responseStatuses.size() == 1 && !data.followUpProgress.jof1_1 &&
-            !data.followUpProgress.jof1_2 && !data.followUpProgress.jof1_3)) &&
-        (!data.followUpProgress.jof1_1 && !data.followUpProgress.jof1_2 && !data.followUpProgress.jof1_3 ||
+          (data.responseStatuses.size() == 1 && hasNoJourneyProgress(data))) &&
+        (hasNoJourneyProgress(data) ||
           data.responseStatuses.hasAny(['say_yes_follow_up']));
     }
 
@@ -168,6 +187,20 @@ service cloud.firestore {
       allow update: if isMember() &&
         isOwner(resource.data.createdById) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['linkedUserId', 'linkedAt', 'linkedByUid']) &&
+        request.resource.data.createdById == resource.data.createdById &&
+        request.resource.data.createdByName == resource.data.createdByName &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        validContact(request.resource.data);
+      allow update: if isMember() &&
+        isOwner(resource.data.linkedByUid) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['linkedUserId', 'linkedAt', 'linkedByUid']) &&
+        request.resource.data.createdById == resource.data.createdById &&
+        request.resource.data.createdByName == resource.data.createdByName &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        validContact(request.resource.data);
+      allow update: if isMember() &&
+        isOwner(resource.data.linkedByUid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['linkedUserId', 'linkedAt', 'linkedByUid', 'updatedAt']) &&
         request.resource.data.createdById == resource.data.createdById &&
         request.resource.data.createdByName == resource.data.createdByName &&
         request.resource.data.createdAt == resource.data.createdAt &&

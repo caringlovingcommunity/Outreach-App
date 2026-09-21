@@ -13,7 +13,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Contact, ContactInput } from '../types';
+import { JOURNEY_OF_FAITH_STEPS } from '../types';
+import type { Contact, ContactInput, FollowUpProgress } from '../types';
 import type { PrivateUserProfile, PublicUserProfile } from '../types/user';
 
 const contactsCollection = collection(db, 'contacts');
@@ -24,10 +25,25 @@ export interface ContactAccountMatch {
   photoURL: string;
 }
 
+export const getLinkedAccountProfile = async (userId: string): Promise<ContactAccountMatch | null> => {
+  const profileSnapshot = await getDoc(doc(db, 'users_public', userId));
+  if (!profileSnapshot.exists()) return null;
+  const profile = profileSnapshot.data() as PublicUserProfile;
+  return {
+    uid: profile.uid,
+    displayName: profile.displayName,
+    photoURL: profile.photoURL || '',
+  };
+};
+
 const cleanOptional = (value?: string): string | undefined => {
   const trimmed = value?.trim();
   return trimmed || undefined;
 };
+
+const emptyFollowUpProgress = (): FollowUpProgress => Object.fromEntries(
+  JOURNEY_OF_FAITH_STEPS.map((step) => [step, false]),
+) as unknown as FollowUpProgress;
 
 const toPayload = (input: ContactInput, createdById: string, createdByName: string) => {
   const phoneNumber = cleanOptional(input.phoneNumber);
@@ -44,7 +60,7 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
     responseStatuses: input.gospelStatus === 'not_started' ? [] : input.responseStatuses,
     followUpProgress: input.responseStatuses.includes('say_yes_follow_up')
       ? input.followUpProgress
-      : { jof1_1: false, jof1_2: false, jof1_3: false },
+      : emptyFollowUpProgress(),
     ...(remarks ? { remarks } : {}),
   };
 };
@@ -67,12 +83,27 @@ const mapContact = (contactDoc: { id: string; data: () => Record<string, unknown
 });
 
 export const getMyContacts = async (userId: string): Promise<Contact[]> => {
-  const snapshot = await getDocs(query(
-    contactsCollection,
-    where('createdById', '==', userId),
-    orderBy('createdAt', 'desc'),
-  ));
-  return snapshot.docs.map(mapContact);
+  const [createdSnapshot, linkedSnapshot] = await Promise.all([
+    getDocs(query(
+      contactsCollection,
+      where('createdById', '==', userId),
+      orderBy('createdAt', 'desc'),
+    )),
+    getDocs(query(
+      contactsCollection,
+      where('linkedByUid', '==', userId),
+      orderBy('createdAt', 'desc'),
+    )),
+  ]);
+  const contacts = new Map<string, Contact>();
+  [...createdSnapshot.docs, ...linkedSnapshot.docs].forEach((contactDoc) => {
+    contacts.set(contactDoc.id, mapContact(contactDoc));
+  });
+  return [...contacts.values()].sort((left, right) => {
+    const leftTime = left.createdAt?.toMillis?.() ?? left.createdAt?.getTime?.() ?? 0;
+    const rightTime = right.createdAt?.toMillis?.() ?? right.createdAt?.getTime?.() ?? 0;
+    return rightTime - leftTime;
+  });
 };
 
 export const getFilteredContacts = async (userId: string): Promise<Contact[]> => {

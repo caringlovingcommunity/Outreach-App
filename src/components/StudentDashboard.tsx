@@ -141,7 +141,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
         {activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={handleProfileUpdated} />
         ) : activeTab === 'friends' ? (
-          <FriendsPage currentUserId={user.uid} />
+          <FriendsPage currentUserId={user.uid} isStudent />
         ) : activeTab === 'events' ? (
           <StudentEvents user={user} />
         ) : (
