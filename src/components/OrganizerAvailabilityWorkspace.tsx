@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart3, CalendarDays, ClipboardList } from 'lucide-react';
 import { AvailabilityGrid } from './AvailabilityGrid';
 import { OrganizerHeatmap } from './OrganizerHeatmap';
@@ -19,6 +19,10 @@ const views: { id: WorkspaceView; label: string; icon: React.ComponentType<{ cla
 
 export const OrganizerAvailabilityWorkspace: React.FC<OrganizerAvailabilityWorkspaceProps> = ({ activeSemester }) => {
   const [activeView, setActiveView] = useState<WorkspaceView>('availability');
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeView]);
 
   return (
     <section className="mx-auto max-w-5xl space-y-5 pb-6">

@@ -23,7 +23,7 @@ export const useOrganizerHeatmap = (activeSemester: Semester | null) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== 'organizer' || !activeSemester) {
+    if (!user || !['organizer', 'admin'].includes(user.role) || !activeSemester) {
       setLoading(false);
       return undefined;
     }

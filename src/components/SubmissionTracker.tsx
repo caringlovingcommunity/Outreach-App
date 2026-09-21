@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSubmissionTracker } from '../hooks/useSubmissionTracker';
 
 interface SubmissionTrackerProps {
@@ -9,6 +9,10 @@ interface SubmissionTrackerProps {
 export const SubmissionTracker: React.FC<SubmissionTrackerProps> = ({ activeSemesterId, activeSemesterName }) => {
   const { submittedStudents, pendingStudents, totalStudents, submissionRate, loading, error } = useSubmissionTracker(activeSemesterId);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted'>('pending');
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   if (loading) return <div className="app-loading-state text-muted">Calculating submission statistics...</div>;
   if (error) return <div className="app-alert-error">{error}</div>;

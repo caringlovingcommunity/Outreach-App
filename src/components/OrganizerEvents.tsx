@@ -31,6 +31,8 @@ interface Props {
   user: UserProfile;
 }
 
+type EventsView = 'manage' | 'slots';
+
 export const OrganizerEvents: React.FC<Props> = ({ user }) => {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,7 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
     slotId: string;
     participants: AvailableStudent[];
   } | null>(null);
+  const [activeView, setActiveView] = useState<EventsView>('manage');
 
   useEffect(() => {
     setLoading(true);
@@ -195,27 +198,46 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
   };
 
   return (
-    <section className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section className="mx-auto max-w-5xl pb-6">
+      <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Event planning</p>
-          <h2 className="mt-1 text-2xl font-bold text-text">Outreach events</h2>
-          <p className="mt-1 text-sm text-muted">Create dates and time windows for participants to join.</p>
+          <p className="text-2xl font-bold sm:text-3xl">Events</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">Create dates and time windows for participants to join.</p>
         </div>
+      </div>
+      {activeView === 'manage' && <div className="mt-4 flex justify-end">
         <button
           type="button"
           onClick={() => (showForm ? resetForm() : startCreate())}
-          className="app-button-primary"
+          className="app-button-primary w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Create Event
         </button>
+      </div>}
+
+      <div className="mt-5 grid grid-cols-2 border-b border-border" role="tablist" aria-label="Event views">
+        {([
+          ['manage', 'Manage Events'],
+          ['slots', 'View Events'],
+        ] as const).map(([view, label]) => (
+          <button
+            key={view}
+            type="button"
+            role="tab"
+            aria-selected={activeView === view}
+            onClick={() => setActiveView(view)}
+            className={`min-h-12 border-b-2 px-2 text-sm font-semibold transition-colors ${activeView === view ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {error && <div className="app-alert-error">{error}</div>}
+      {error && <div className="app-alert-error mt-5">{error}</div>}
 
-      {showForm && (
-        <form onSubmit={saveEvent} className="app-panel p-5 sm:p-6">
+      {activeView === 'manage' && showForm && (
+        <form onSubmit={saveEvent} className="app-panel mt-5 p-5 sm:p-6">
           <h3 className="text-base font-semibold text-text">{editingEventId ? 'Edit event details' : 'New event details'}</h3>
           <label className="mt-4 block">
             <span className="app-label">Event name</span>
@@ -283,18 +305,18 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
         </form>
       )}
 
-      {loading ? (
-        <div className="app-loading-state min-h-40"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
+      {activeView === 'manage' && (loading ? (
+        <div className="app-loading-state mt-6 min-h-48"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
       ) : events.length === 0 ? (
-        <div className="app-empty-state border-dashed">
+        <div className="app-empty-state mt-6 border-dashed">
           <CalendarDays className="mx-auto h-8 w-8 text-subtle" />
           <p className="mt-3 text-sm font-medium text-text">No events created yet.</p>
           <p className="mt-1 text-xs text-muted">Create the first event for participants to join.</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="mt-6 divide-y divide-border border-y border-border">
           {events.map((event) => (
-            <article key={event.id} className="app-panel p-5">
+            <article key={event.id} className="py-6 first:pt-5 last:pb-5">
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-lg font-semibold text-text">{event.name}</h3>
                 <span className="flex-shrink-0 text-xs font-medium text-muted">{event.dates.length} {event.dates.length === 1 ? 'date' : 'dates'}</span>
@@ -305,9 +327,14 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
                     <CalendarDays className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                     <div>
                       <div className="flex flex-wrap items-center gap-2 font-medium text-text">{formatEventDate(entry.date)}<span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary">{getEventDateCountdown(entry.date)}</span></div>
-                      <div className="mt-0.5 flex items-start gap-1.5 text-xs text-muted">
+                      <div className="mt-2 flex items-start gap-1.5 text-xs text-muted">
                         <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                        <span>{entry.timeSlots.join(' • ') || 'No time slots configured'}</span>
+                        {entry.timeSlots.length > 0 ? entry.timeSlots.map((timeSlot, slotIndex) => (
+                          <React.Fragment key={`${timeSlot}-${slotIndex}`}>
+                            {slotIndex > 0 && <span aria-hidden="true" className="mx-2 text-muted">•</span>}
+                            <span>{timeSlot}</span>
+                          </React.Fragment>
+                        )) : <span>No time slots configured</span>}
                       </div>
                     </div>
                   </div>
@@ -316,8 +343,8 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
                   <p className="pl-6 text-xs font-medium text-subtle">+{event.dates.length - 2} more {event.dates.length - 2 === 1 ? 'date' : 'dates'}</p>
                 )}
               </div>
-              <div className="mt-4 flex justify-end gap-2 border-t border-border pt-3">
-                <button type="button" onClick={() => setViewingEvent(event)} className="app-button-text min-h-9 px-3 py-1.5 text-xs">View details</button>
+              <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+                <button type="button" onClick={() => setViewingEvent(event)} className="app-button-text min-h-9 px-3 py-1.5 text-xs">Manage pairing details</button>
                 <button type="button" onClick={() => startEdit(event)} className="app-button-text min-h-9 px-3 py-1.5 text-xs">
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
@@ -335,9 +362,9 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
             </article>
           ))}
         </div>
-      )}
+      ))}
 
-      {viewingEvent && (
+      {activeView === 'manage' && viewingEvent && (
         <div className="app-modal-backdrop items-end justify-center">
           <div className="app-modal max-h-[80vh] space-y-4">
             <div className="flex items-start justify-between border-b border-border pb-3">
@@ -388,11 +415,11 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
         </div>
       )}
 
-      <div className="border-t border-border pt-8">
-        <EventParticipation user={user} heading={false} />
-      </div>
+      {activeView === 'slots' && <div className="border-t border-border pt-8">
+        <EventParticipation user={user} heading={false} showSlotInstruction />
+      </div>}
 
-      {pairingSlot && (
+      {activeView === 'manage' && pairingSlot && (
         <SlotPairingModal
           isOpen
           onClose={() => setPairingSlot(null)}

@@ -104,6 +104,10 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
   const [disciplerLoading, setDisciplerLoading] = useState(true);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeView]);
+
+  useEffect(() => {
     setLoading(true);
     setError(null);
     const unsubscribe = subscribeToTeamFriendsWithContacts(

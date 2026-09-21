@@ -39,7 +39,7 @@ export const TopNav: React.FC<TopNavProps> = ({ tabs }) => (
 
 interface BottomNavProps {
   tabs: NavTab[];
-  profile: NavProfile;
+  profile?: NavProfile;
   isDrawerOpen?: boolean;
 }
 
@@ -48,7 +48,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ tabs, profile, isDrawerOpe
   <nav className={`fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgb(31_41_55_/_0.1)] transition-transform duration-200 sm:hidden ${
     isDrawerOpen ? 'translate-x-[min(21rem,calc(100vw-2rem))]' : 'translate-x-0'
   }`}>
-    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}>
+    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.length + (profile ? 1 : 0)}, minmax(0, 1fr))` }}>
       {tabs.map((tab) => {
         const Icon = tab.icon;
         return (
@@ -65,21 +65,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({ tabs, profile, isDrawerOpe
           </button>
         );
       })}
-      <button
-        type="button"
-        onClick={profile.onClick}
-        title="View Profile"
-        className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-app-md text-[10px] font-semibold transition-colors ${
-          profile.isActive ? 'bg-primary-soft text-primary' : 'text-muted active:bg-surface-muted'
-        }`}
-      >
-        {profile.photoURL ? (
-          <img src={profile.photoURL} alt="" className="h-6 w-6 rounded-full object-cover ring-2 ring-border" />
-        ) : (
-          <UserIcon className="h-6 w-6" />
-        )}
-        <span>Profile</span>
-      </button>
+      {profile && (
+        <button
+          type="button"
+          onClick={profile.onClick}
+          title="View Profile"
+          className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-app-md text-[10px] font-semibold transition-colors ${
+            profile.isActive ? 'bg-primary-soft text-primary' : 'text-muted active:bg-surface-muted'
+          }`}
+        >
+          {profile.photoURL ? (
+            <img src={profile.photoURL} alt="" className="h-6 w-6 rounded-full object-cover ring-2 ring-border" />
+          ) : (
+            <UserIcon className="h-6 w-6" />
+          )}
+          <span>Profile</span>
+        </button>
+      )}
     </div>
   </nav>
 );

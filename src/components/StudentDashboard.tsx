@@ -40,6 +40,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
   const [profileStatus, setProfileStatus] = useState<'loading' | 'incomplete' | 'complete'>('loading');
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
+  useEffect(() => {
     let isMounted = true;
 
     getCompleteUserProfile(user.uid)
@@ -158,7 +162,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
             isActive: activeTab === tab.id,
             onClick: () => setActiveTab(tab.id),
           }))}
-          profile={{ photoURL: user.photoURL, isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }}
           isDrawerOpen={isDrawerOpen}
         />
       )}

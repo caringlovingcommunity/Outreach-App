@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ClipboardCheck, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ClipboardCheck, PartyPopper, Settings, Shield, UserCircle, Users, Calendar } from 'lucide-react';
 import { AdminUserManagementPage } from './AdminUserManagementPage';
 import { OrganizerAvailabilityWorkspace } from './OrganizerAvailabilityWorkspace';
 import { SemesterManagerModal } from './SemesterManagerModal';
@@ -21,11 +21,15 @@ interface OrganizerDashboardProps {
 type OrganizerTab = 'availability_workspace' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'availability_workspace', label: 'Availability', icon: Users },
+  { id: 'availability_workspace', label: 'Availability', icon: Calendar },
   { id: 'events', label: 'Events', icon: PartyPopper },
-  { id: 'student_directory', label: 'Directory', icon: Users },
   { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
+];
+
+const ADMIN_TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'student_directory', label: 'Directory', icon: Users },
+  { id: 'user_management', label: 'User Management', icon: Shield },
 ];
 
 export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, logout }) => {
@@ -34,6 +38,10 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   const handleLogout = async () => {
     try {
@@ -44,9 +52,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
     }
   };
 
-  const tabs = user.role === 'admin'
-    ? [...TABS, { id: 'user_management' as const, label: 'User Management', icon: Shield }]
-    : TABS;
+  const tabs = user.role === 'admin' ? [...TABS, ...ADMIN_TABS] : TABS;
 
   return (
     <div className="app-shell">
@@ -147,7 +153,6 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
           isActive: activeTab === tab.id,
           onClick: () => setActiveTab(tab.id),
         }))}
-        profile={{ photoURL: user.photoURL, isActive: activeTab === 'profile', onClick: () => setActiveTab('profile') }}
         isDrawerOpen={isDrawerOpen}
       />
     </div>

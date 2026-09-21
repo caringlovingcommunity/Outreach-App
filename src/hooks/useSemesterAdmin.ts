@@ -6,13 +6,14 @@ import { useAuth } from '../context/AuthContext';
 
 export const useSemesterAdmin = () => {
   const { user } = useAuth();
+  const canManageSemesters = user?.role === 'organizer' || user?.role === 'admin';
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSemesters = async () => {
-    if (!user || user.role !== 'organizer') return;
+    if (!user || !canManageSemesters) return;
     try {
       setLoading(true);
       const semRef = collection(db, 'semesters');
@@ -32,11 +33,11 @@ export const useSemesterAdmin = () => {
 
   useEffect(() => {
     fetchSemesters();
-  }, [user]);
+  }, [user, canManageSemesters]);
 
   // Atomically activate target semester and deactivate all others
   const setActiveSemester = async (targetSemesterId: string) => {
-    if (!user || user.role !== 'organizer') return;
+    if (!user || !canManageSemesters) return;
     try {
       setSubmitting(true);
       setError(null);
@@ -64,7 +65,7 @@ export const useSemesterAdmin = () => {
 
   // Create a new semester
   const createSemester = async (semesterId: string, name: string, setAsActive: boolean) => {
-    if (!user || user.role !== 'organizer') return;
+    if (!user || !canManageSemesters) return;
     try {
       setSubmitting(true);
       setError(null);

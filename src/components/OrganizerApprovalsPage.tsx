@@ -31,6 +31,10 @@ export const OrganizerApprovalsPage: React.FC = () => {
   const [updatingUid, setUpdatingUid] = useState<string | null>(null);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
+  useEffect(() => {
     const handleError = (listenerError: Error) => {
       console.error('Approval listener error:', listenerError);
       setError('Unable to load member approvals. Please try again.');

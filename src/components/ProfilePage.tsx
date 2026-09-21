@@ -145,8 +145,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
 
   if (!isEditing) {
     return (
-      <div className="min-h-screen bg-background px-0 pb-10 sm:px-4 sm:pt-6">
-        <div className="mx-auto max-w-3xl overflow-hidden bg-surface shadow-app-sm sm:rounded-app-lg sm:border sm:border-border">
+      <div className="-mx-4 -mt-6 min-h-screen bg-background px-0 pb-10 sm:-mx-6 sm:-mt-8 sm:pt-0">
+        <div className="mx-auto max-w-5xl overflow-hidden">
           <div className="relative h-32 bg-primary sm:h-44">
             <div className="absolute -bottom-14 left-5 sm:left-8">
               {currentUser.photoURL ? (
