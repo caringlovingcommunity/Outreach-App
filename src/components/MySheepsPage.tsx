@@ -81,6 +81,12 @@ export const MySheepsPage: React.FC = () => {
   const visibleCommunityContacts = communityContacts.filter(
     (contact) => contact.createdById !== user?.uid && !contact.linkedUserId,
   );
+  const myDisciples = myContacts.filter(
+    (contact) => contact.linkedByUid === user?.uid,
+  );
+  const ownContacts = myContacts.filter(
+    (contact) => contact.linkedByUid !== user?.uid,
+  );
   const [editing, setEditing] = useState<Contact | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ContactInput>(emptyInput);
@@ -350,12 +356,27 @@ export const MySheepsPage: React.FC = () => {
       )}
       <section>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text">My Contacts</h3>
-          <span className="text-xs text-muted">{myContacts.length}</span>
+          <h3 className="text-lg font-bold text-text">My Disciples</h3>
+          <span className="text-xs text-muted">{myDisciples.length}</span>
         </div>
         <div className="mt-2 divide-y divide-border border-y border-border">
-          {myContacts.length ? (
-            myContacts.map((contact) => renderContact(contact))
+          {myDisciples.length ? (
+            myDisciples.map((contact) => renderContact(contact))
+          ) : (
+            <p className="py-8 text-center text-sm text-muted">
+              Contacts assigned to you will appear here.
+            </p>
+          )}
+        </div>
+      </section>
+      <section>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-text">My Contacts</h3>
+          <span className="text-xs text-muted">{ownContacts.length}</span>
+        </div>
+        <div className="mt-2 divide-y divide-border border-y border-border">
+          {ownContacts.length ? (
+            ownContacts.map((contact) => renderContact(contact))
           ) : (
             <p className="py-8 text-center text-sm text-muted">
               Your outreach contacts will appear here.

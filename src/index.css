@@ -166,6 +166,10 @@
 		@apply fixed inset-0 z-50 flex bg-overlay p-0 sm:items-center sm:justify-center sm:p-4;
 	}
 
+	body:has(.app-modal-backdrop) {
+		overflow: hidden;
+	}
+
 	.app-modal {
 		@apply flex w-full max-w-md flex-col rounded-t-app-lg border border-border bg-surface p-5 shadow-app-lg sm:rounded-app-lg;
 	}
