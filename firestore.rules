@@ -13,7 +13,13 @@ service cloud.firestore {
     function isOrganizer() {
       return isAuthenticated() &&
         (request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' ||
-          get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.role == 'organizer');
+          get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.role in ['organizer', 'admin']);
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' ||
+          get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.role == 'admin');
     }
 
     function isMember() {
@@ -57,13 +63,13 @@ service cloud.firestore {
         (!('approvedByEmail' in request.resource.data) || request.resource.data.approvedByEmail is string) &&
         (!('approvedAt' in request.resource.data) || request.resource.data.approvedAt is timestamp);
       allow update: if isAuthenticated() &&
-        request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' &&
+        isAdmin() &&
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']) &&
-        request.resource.data.role in ['student', 'organizer'] &&
+        request.resource.data.role in ['student', 'organizer', 'admin'] &&
         request.resource.data.visionCastingAccepted == resource.data.visionCastingAccepted &&
         request.resource.data.membershipStatus == resource.data.membershipStatus;
-      allow delete: if false;
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
 
     match /users_private/{userId} {
@@ -73,7 +79,7 @@ service cloud.firestore {
         request.resource.data.email is string;
       allow update: if isOwner(userId) &&
         request.resource.data.uid == resource.data.uid;
-      allow delete: if false;
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
 
     match /semesters/{semesterId} {

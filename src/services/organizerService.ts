@@ -6,6 +6,7 @@ import {
   getDocs, 
   doc, 
   getDoc,
+  deleteDoc,
   updateDoc,
   writeBatch,
   serverTimestamp,
@@ -16,10 +17,12 @@ import {
 import { db } from '../services/firebase';
 import type { PublicUserProfile, PrivateUserProfile } from '../types/user';
 
-export interface StudentListItem extends PublicUserProfile {
+export interface DirectoryUser extends PublicUserProfile {
   // We combine public and private data when an organizer views details
   privateDetails?: PrivateUserProfile;
 }
+
+export type StudentListItem = DirectoryUser;
 
 export interface ApprovalMember extends PublicUserProfile {
   email: string;
@@ -145,6 +148,17 @@ export const updateMemberRole = async (memberUid: string, role: 'student' | 'org
   await batch.commit();
 };
 
+export const updateUserRole = async (memberUid: string, role: 'student' | 'organizer' | 'admin'): Promise<void> => {
+  await updateDoc(doc(db, 'users_public', memberUid), { role });
+};
+
+export const deleteUserProfiles = async (userId: string): Promise<void> => {
+  await Promise.all([
+    deleteDoc(doc(db, 'users_public', userId)),
+    deleteDoc(doc(db, 'users_private', userId)),
+  ]);
+};
+
 /**
  * Fetches public profiles for all registered students.
  */
@@ -168,6 +182,23 @@ export const getAllStudents = async (): Promise<PublicUserProfile[]> => {
   } catch (error) {
     console.error('Error fetching students list:', error);
     throw new Error('Failed to load student directory.');
+  }
+};
+
+export const getAllApprovedUsers = async (): Promise<PublicUserProfile[]> => {
+  try {
+    const q = query(
+      collection(db, 'users_public'),
+      where('membershipStatus', '==', 'APPROVED'),
+      orderBy('displayName', 'asc'),
+      limit(100)
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => docSnap.data() as PublicUserProfile);
+  } catch (error) {
+    console.error('Error fetching approved user directory:', error);
+    throw new Error('Failed to load user directory.');
   }
 };
 
@@ -199,5 +230,26 @@ export const getStudentFullDetail = async (studentId: string): Promise<StudentLi
   } catch (error) {
     console.error(`Error fetching detail for student ${studentId}:`, error);
     throw new Error('Failed to load student contact details. Ensure you have Organizer permissions.');
+  }
+};
+
+export const getUserFullDetail = async (userId: string): Promise<DirectoryUser | null> => {
+  try {
+    const [publicSnap, privateSnap] = await Promise.all([
+      getDoc(doc(db, 'users_public', userId)),
+      getDoc(doc(db, 'users_private', userId)),
+    ]);
+
+    if (!publicSnap.exists()) return null;
+
+    return {
+      ...(publicSnap.data() as PublicUserProfile),
+      privateDetails: privateSnap.exists()
+        ? (privateSnap.data() as PrivateUserProfile)
+        : undefined,
+    };
+  } catch (error) {
+    console.error(`Error fetching directory detail for ${userId}:`, error);
+    throw new Error('Failed to load user details. Ensure you have Organizer permissions.');
   }
 };

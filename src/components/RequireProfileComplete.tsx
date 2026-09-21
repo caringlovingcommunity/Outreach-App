@@ -17,7 +17,7 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role === 'organizer' || user.visionCastingAccepted !== true) {
+    if (!user || user.role === 'organizer' || user.role === 'admin' || user.visionCastingAccepted !== true) {
       setCheckingProfile(false);
       return;
     }
@@ -52,7 +52,7 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (user.role !== 'organizer' && user.visionCastingAccepted !== true) {
+  if (user.role !== 'organizer' && user.role !== 'admin' && user.visionCastingAccepted !== true) {
     return <PendingApprovalPage />;
   }
 
@@ -60,7 +60,7 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
     return <div className="app-shell flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>;
   }
 
-  if (user.role !== 'organizer' && !complete) {
+  if (user.role !== 'organizer' && user.role !== 'admin' && !complete) {
     return <Navigate to="/register" state={{ from: location }} replace />;
   }
 
@@ -73,7 +73,7 @@ export const RequireRegistration: React.FC<Props> = ({ children }) => {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role === 'organizer' || user.visionCastingAccepted !== true) {
+    if (!user || user.role === 'organizer' || user.role === 'admin' || user.visionCastingAccepted !== true) {
       setCheckingProfile(false);
       return;
     }
@@ -101,7 +101,7 @@ export const RequireRegistration: React.FC<Props> = ({ children }) => {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'organizer') return <Navigate to="/" replace />;
+  if (user.role === 'organizer' || user.role === 'admin') return <Navigate to="/" replace />;
   if (user.visionCastingAccepted !== true) return <PendingApprovalPage />;
   if (checkingProfile) {
     return <div className="app-shell flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>;

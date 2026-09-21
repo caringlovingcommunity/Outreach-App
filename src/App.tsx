@@ -13,7 +13,7 @@ const Dashboard: React.FC = () => {
 
   if (!user) return null;
 
-  if (user.role === 'organizer') {
+  if (user.role === 'organizer' || user.role === 'admin') {
     return <OrganizerDashboard user={user} logout={logout} />;
   }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BarChart3, CalendarDays, ClipboardCheck, PartyPopper, Settings, UserCircle, Users } from 'lucide-react';
+import { BarChart3, CalendarDays, ClipboardCheck, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
+import { AdminUserManagementPage } from './AdminUserManagementPage';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
@@ -19,7 +20,7 @@ interface OrganizerDashboardProps {
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'approvals' | 'friends' | 'profile';
+type OrganizerTab = 'my_availability' | 'heatmap' | 'events' | 'student_directory' | 'submission_progress' | 'approvals' | 'friends' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'my_availability', label: 'My Availability', icon: CalendarDays },
@@ -47,6 +48,10 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
     }
   };
 
+  const tabs = user.role === 'admin'
+    ? [...TABS, { id: 'user_management' as const, label: 'User Management', icon: Shield }]
+    : TABS;
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -65,7 +70,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
             <NavigationDrawer
               isOpen={isDrawerOpen}
               onOpenChange={setIsDrawerOpen}
-              tabs={TABS.map((tab) => ({
+              tabs={tabs.map((tab) => ({
                 id: tab.id,
                 label: tab.label,
                 icon: tab.icon,
@@ -104,7 +109,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
         </div>
 
         <TopNav
-          tabs={TABS.map((tab) => ({
+          tabs={tabs.map((tab) => ({
             id: tab.id,
             label: tab.label,
             icon: tab.icon,
@@ -115,7 +120,9 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        {activeTab === 'profile' ? (
+        {activeTab === 'user_management' ? (
+          <AdminUserManagementPage user={user} />
+        ) : activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={() => setActiveTab('my_availability')} />
         ) : activeTab === 'friends' ? (
           <FriendsPage currentUserId={user.uid} />
@@ -141,7 +148,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
       />
 
       <BottomNav
-        tabs={TABS.map((tab) => ({
+        tabs={tabs.map((tab) => ({
           id: tab.id,
           label: tab.label,
           icon: tab.icon,

@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (!publicProfileSnap.exists()) {
             const legacyProfileSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
             const legacyData = legacyProfileSnap.exists() ? legacyProfileSnap.data() : {};
-            const role = legacyData.role === 'organizer' ? 'organizer' : 'student';
+            const role = legacyData.role === 'admin' ? 'admin' : legacyData.role === 'organizer' ? 'organizer' : 'student';
             const newPublicProfile = {
               uid: firebaseUser.uid,
               displayName: legacyData.displayName || firebaseUser.displayName || 'User',

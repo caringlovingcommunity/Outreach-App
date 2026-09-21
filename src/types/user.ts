@@ -22,7 +22,7 @@ export interface PublicUserProfile {
   faculty?: FacultyCode;
   course?: string;
   yearOfStudy?: 1 | 2 | 3 | 4 | 5;
-  role: 'student' | 'organizer';
+  role: 'student' | 'organizer' | 'admin';
   visionCastingAccepted?: boolean;
   membershipStatus?: MembershipStatus;
   approvedByUid?: string;

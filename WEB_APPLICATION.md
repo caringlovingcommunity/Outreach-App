@@ -209,7 +209,7 @@ The organizer workspace currently contains:
 - **My Availability:** the same availability grid used by students.
 - **Team Heatmap:** aggregates student submissions by day and time slot.
 - **Events:** creates, edits, views, and deletes outreach events.
-- **Directory:** searches students by name or course and filters by faculty.
+- **Directory:** searches approved students and organizers by name, course, or role; filters by faculty, role, year, and profile status; supports sorting and a responsive full-profile details view for organizers.
 - **Progress:** divides students into submitted and pending groups and calculates a submission rate.
 - **Profile:** organizer profile management.
 
@@ -236,9 +236,9 @@ It returns:
 - `loading`
 - `error`
 
-### Student directory
+### User directory
 
-The directory first loads public student profiles, then applies client-side name/course search and faculty filtering. Private details are loaded only when an organizer opens a specific student, reducing unnecessary exposure of contact information in the main list.
+The organizer directory loads approved public profiles for students and organizers, then applies client-side name, course, role, faculty, year, and profile-status filters with configurable sorting. Private details are loaded only when an organizer opens a specific user, reducing unnecessary exposure of contact and demographic information in the main list.
 
 ### Event administration
 
