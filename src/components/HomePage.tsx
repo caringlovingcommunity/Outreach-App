@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, CalendarClock, Eye, Flag, MapPin } from 'lucide-react';
+import { BookOpen, CalendarClock, Eye, Flag } from 'lucide-react';
 
 type HomeView = 'info' | 'calender';
 
@@ -80,7 +80,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <img src="/CLC fam.png" alt="Student Fellowship Community" className="h-56 w-full rounded-lg object-cover" />
             </section>
 
-            <section className="home-info-section grid gap-6 lg:grid-cols-2 lg:items-center">
+            <section className="home-info-section border-t border-border pt-8 grid gap-6 lg:grid-cols-2 lg:items-center">
               <div>
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary"><Flag className="h-4 w-4" /> Mission mandate</div>
                 <h2 className="mt-3 text-2xl font-bold text-text">We are committed to</h2>
@@ -89,13 +89,13 @@ export const HomePage: React.FC<HomePageProps> = ({
               <img src="/Mission Mandate.png" alt="Christ-Centered Multiplying Community" className="h-56 w-full rounded-lg object-cover" />
             </section>
 
-            <section className="home-info-section">
+            <section className="home-info-section border-t border-border pt-8">
               <div className="text-center"><div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary"><BookOpen className="h-4 w-4" /> Our strategies</div><h2 className="mt-3 text-2xl font-bold text-text">W B T S</h2><p className="mt-2 text-sm text-muted">See how we guide and empower every student.</p></div>
               <div className="mt-5 grid grid-cols-4 border-b border-border" role="tablist" aria-label="Home strategy stages">
                 {(Object.keys(strategies) as StrategyKey[]).map((key) => <button key={key} type="button" role="tab" aria-selected={activeStrategy === key} onClick={() => setActiveStrategy(key)} className={`min-h-11 border-b-2 px-2 text-xs font-semibold transition-colors ${activeStrategy === key ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'}`}>{strategies[key].label}</button>)}
               </div>
               <div key={activeStrategy} className="home-strategy-panel mt-5 grid gap-5 sm:grid-cols-[10rem_1fr] sm:items-start">
-                <img src={active.image} alt={`${active.label}: ${active.title}`} className="h-32 w-full rounded-lg object-cover sm:h-28" />
+                <img src={active.image} alt={`${active.label}: ${active.title}`} className="h-50 w-full rounded-lg object-cover sm:h-28" />
                 <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Stage {Object.keys(strategies).indexOf(activeStrategy) + 1} · {active.detail}</p><h3 className="mt-2 text-lg font-bold text-text"><strong>{active.label}:</strong> {active.title}</h3><blockquote className="mt-3 border-l-4 border-primary bg-primary-soft p-4 text-sm italic leading-7 text-text">“{active.text}”</blockquote></div>
               </div>
             </section>
@@ -108,7 +108,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-primary"><span className="rounded border border-border px-3 py-2">Prayer walks</span><span className="rounded border border-border px-3 py-2">Outreach together</span><span className="rounded border border-border px-3 py-2">Campus fellowship</span></div>
             </section>
 
-            <section className="home-info-section border-t border-border pt-8">
+            {/* <section className="home-info-section border-t border-border pt-8">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">Make room to serve</p>
                 <h2 className="mt-3 text-2xl font-bold text-text">Upcoming outreach activities</h2>
@@ -116,18 +116,18 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div className="mt-5 space-y-3">
                 <article className="flex gap-3 border-b border-border py-3">
                   <b className="w-12 shrink-0 text-center text-xl text-primary"><small className="block text-xs">SAT</small>14</b>
-                  <div><h3 className="font-bold text-text">DMPR <span className="ml-2 text-xs font-semibold text-primary">6 slots left</span></h3><p className="text-sm text-muted">08:30–11:30 · Packing &amp; distribution</p><small className="mt-1 flex items-center gap-1 text-muted"><MapPin className="h-3.5 w-3.5" /> Surau Al-Hidayah, Kota Samarahan</small></div>
+                  <div><h3 className="font-bold text-text">DMPR <span className="ml-2 text-xs font-semibold text-primary">6 slots left</span></h3><p className="text-sm text-muted">08:30–11:30 · Packing &amp; distribution</p><small className="mt-1 flex items-center gap-1 text-muted"><MapPin className="h-3.5 w-3.5" /> Dream Centre</small></div>
                 </article>
                 <article className="flex gap-3 border-b border-border py-3">
                   <b className="w-12 shrink-0 text-center text-xl text-primary"><small className="block text-xs">SUN</small>15</b>
-                  <div><h3 className="font-bold text-text">FOC Outreach <span className="ml-2 text-xs font-semibold text-primary">4 slots left</span></h3><p className="text-sm text-muted">14:00–17:00 · Digital literacy &amp; tutoring</p><small className="mt-1 flex items-center gap-1 text-muted"><MapPin className="h-3.5 w-3.5" /> Kota Samarahan Public Hall</small></div>
+                  <div><h3 className="font-bold text-text">FOC Outreach <span className="ml-2 text-xs font-semibold text-primary">4 slots left</span></h3><p className="text-sm text-muted">14:00–17:00 · Digital literacy &amp; tutoring</p><small className="mt-1 flex items-center gap-1 text-muted"><MapPin className="h-3.5 w-3.5" /> UNIMAS Feng</small></div>
                 </article>
                 <article className="flex gap-3 py-3">
                   <b className="w-12 shrink-0 text-center text-xl text-primary"><small className="block text-xs">SAT</small>21</b>
-                  <div><h3 className="font-bold text-text">Beach Trip 2026 <span className="ml-2 text-xs font-semibold text-primary">8 slots</span></h3><p className="text-sm text-muted">09:00–12:00 · Wellness visits &amp; singing</p><small className="mt-1 flex items-center gap-1 text-muted"><MapPin className="h-3.5 w-3.5" /> Sri Aman Golden Years Home</small></div>
+                  <div><h3 className="font-bold text-text">Beach Trip 2026 <span className="ml-2 text-xs font-semibold text-primary">8 slots</span></h3><p className="text-sm text-muted">09:00–12:00 · Wellness visits &amp; singing</p><small className="mt-1 flex items-center gap-1 text-muted"><MapPin className="h-3.5 w-3.5" /> TBD</small></div>
                 </article>
               </div>
-            </section>
+            </section> */}
           </div>
         ) : (
           <section aria-label="Calendar">
