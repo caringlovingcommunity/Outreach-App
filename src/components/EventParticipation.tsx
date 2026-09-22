@@ -137,7 +137,7 @@ export const EventParticipation: React.FC<Props> = ({ user, heading = true, show
       )}
 
       {showSlotInstruction && (
-        <div className="mt-0 flex items-start gap-3 rounded-app-md border border-primary/20 bg-primary-soft px-4 py-3 text-sm text-text">
+        <div className="mt-5 flex items-start gap-3 rounded-app-md border border-primary/20 bg-primary-soft px-4 py-3 text-sm text-text">
           <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
           <p><span className="font-bold text-primary">Please select your slot</span><span className="block text-muted">Tap a time slot below to confirm when you can attend.</span></p>
         </div>

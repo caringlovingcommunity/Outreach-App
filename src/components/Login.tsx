@@ -1,168 +1,48 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isFirebaseConfigured } from '../services/firebase';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowRight, BookOpen, CheckCircle2, Eye, Flag, Loader2, MapPin, Menu, MessageCircle, UsersRound, X } from 'lucide-react';
+
+type StrategyKey = 'win' | 'build' | 'train' | 'send';
+const strategies: Record<StrategyKey, { label: string; title: string; text: string; detail: string }> = {
+  win: { label: 'WIN', title: 'Reaching hearts', text: 'We share the Gospel through our life and our words, one relationship at a time.', detail: 'Relational witness' },
+  build: { label: 'BUILD', title: 'Deep relationships', text: 'We journey with people so they can follow Jesus well through discipleship and community.', detail: 'Spiritual growth' },
+  train: { label: 'TRAIN', title: 'Equipping disciples', text: 'We equip people to share the Gospel and help others learn how to follow Jesus well.', detail: 'Leadership skills' },
+  send: { label: 'SEND', title: 'Beyond campus', text: 'We send disciples to multiply what they have received, on campus and beyond.', detail: 'Multiplying impact' },
+};
 
 export const Login: React.FC = () => {
   const { signInWithGoogle } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activeStrategy, setActiveStrategy] = useState<StrategyKey>('win');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const active = strategies[activeStrategy];
 
   const handleSignIn = async () => {
-    try {
-      setErrorMessage(null);
-      setIsSubmitting(true);
-      await signInWithGoogle();
-    } catch (err: any) {
-      if (
-        err?.code !== 'auth/popup-closed-by-user' &&
-        err?.code !== 'auth/cancelled-popup-request' &&
-        err?.code !== 'auth/popup-blocked'
-      ) {
-        if (err?.code === 'auth/unauthorized-domain') {
-          setErrorMessage(
-            'This domain is not authorized in Firebase Auth. In Firebase Console > Authentication > Settings > Authorized Domains, add this domain.'
-          );
-        } else if (err?.code?.includes('api-key-not-valid') || err?.message?.includes('api-key-not-valid')) {
-          setErrorMessage(
-            'Invalid Firebase API Key. Please verify your VITE_FIREBASE_API_KEY environment variable.'
-          );
-        } else {
-          setErrorMessage(
-            err?.message || 'Unable to sign in with Google. Please check your credentials.'
-          );
-        }
+    try { setErrorMessage(null); setIsSubmitting(true); await signInWithGoogle(); }
+    catch (err: any) {
+      if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/popup-blocked'].includes(err?.code)) {
+        if (err?.code === 'auth/unauthorized-domain') setErrorMessage('This domain is not authorized in Firebase Auth. Add it in Firebase Console > Authentication > Settings > Authorized Domains.');
+        else if (err?.code?.includes('api-key-not-valid') || err?.message?.includes('api-key-not-valid')) setErrorMessage('Invalid Firebase API Key. Please verify your VITE_FIREBASE_API_KEY environment variable.');
+        else setErrorMessage(err?.message || 'Unable to sign in with Google. Please check your credentials.');
       }
-    } finally {
-      setIsSubmitting(false);
-    }
+    } finally { setIsSubmitting(false); }
   };
 
-  return (
-      <div
-        id="login-page-container"
-        className="app-shell flex flex-col items-center justify-center px-4 py-8 sm:py-12"
-      >
-        <div
-          id="login-card"
-          className="w-full max-w-md rounded-app-lg border border-border bg-surface p-8 shadow-app-md"
-        >
-        <img
-          src="/Picture1.png"
-          alt="Students connecting through outreach"
-          className="mb-0 w-full max-w-xl object-contain"
-        />
+  const scrollToLogin = () => { document.getElementById('signup-portal')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setMenuOpen(false); };
 
-        
-        {/* Header Section */}
-        <div id="login-header" className="flex flex-col items-center text-center space-y-3">
-          <div
-            id="brand-icon-wrapper"
-            className="flex h-20 w-35 items-center justify-center rounded-xl"
-          >
-              <img
-                src="/CLC.png"
-                alt="CLC"
-                className="h-full w-full object-cover"
-              />
-          </div>
-
-          <div className="space-y-1">
-            <h1
-              id="login-title"
-              className="text-2xl font-bold text-text"
-            >
-              CLC Outreach App
-            </h1>
-            <p
-              id="login-subtitle"
-              className="max-w-xs text-sm text-muted"
-            >
-              Manage and coordinate outreach slots
-            </p>
-          </div>
-        </div>
-
-        {/* Missing Config Notification if env vars aren't populated */}
-        {!isFirebaseConfigured && (
-          <div
-            id="firebase-config-notice"
-            className="app-alert-warning mt-6 text-xs"
-          >
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              <span className="font-medium">Firebase configuration needed:</span> Set your{' '}
-              <code className="rounded bg-surface px-1 py-0.5 font-mono text-[11px]">
-                VITE_FIREBASE_*
-              </code>{' '}
-              environment variables in your project settings to complete Google sign-in.
-            </div>
-          </div>
-        )}
-
-        {/* Error Alert */}
-        {errorMessage && (
-          <div
-            id="login-error-banner"
-            className="app-alert-error mt-4 text-xs"
-          >
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="leading-relaxed">{errorMessage}</span>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div id="login-actions" className="mt-8">
-          <button
-            id="google-signin-button"
-            type="button"
-            onClick={handleSignIn}
-            disabled={isSubmitting}
-            className="app-button-secondary group relative w-full gap-3 px-5 py-3"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>Signing in...</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                <span>Sign in with Google</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Footer Note */}
-        <p
-          id="login-footnote"
-          className="mt-6 text-center text-xs text-muted"
-        >
-          Welcome!! This app is designed for CLC organizers to manage outreach slots. Please sign in with your Google account to continue.
-        </p>
-      </div>
-    </div>
-  );
+  return <div id="login-page-container" className="login-landing app-shell">
+    <header className="login-nav"><a className="login-brand" href="#hero"><img src="/CLC.png" alt="CLC" /><span><strong>CLC Outreach App</strong><small>Caring Loving Community · UNIMAS</small></span></a><nav className={menuOpen ? 'login-nav-links is-open' : 'login-nav-links'}><a href="#vision" onClick={() => setMenuOpen(false)}>Vision</a><a href="#mission" onClick={() => setMenuOpen(false)}>Mission</a><a href="#strategies" onClick={() => setMenuOpen(false)}>Strategies</a><button type="button" className="login-nav-cta" onClick={scrollToLogin}>Sign in <ArrowRight /></button></nav><button type="button" className="login-menu-button" aria-label={menuOpen ? 'Close menu' : 'Open menu'} onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X /> : <Menu />}</button></header>
+    <main>
+      <section id="hero" className="login-hero login-section-reveal"><div className="login-hero-copy"><h1>Connect, serve,<br /><em>build movement.</em></h1><p>We are a community following Jesus and helping people follow Jesus. Journey with students across campus as we draw one another toward Christ.</p><button type="button" className="login-primary-cta" onClick={scrollToLogin}>Join the community <ArrowRight /></button></div><div className="login-hero-art"><div className="login-hero-ring login-hero-ring-one" /><div className="login-hero-ring login-hero-ring-two" /><img src="/Picture1.png" alt="Students connecting through outreach" /><span className="login-float-card"><UsersRound /><strong>One community</strong><small>Many stories of service</small></span></div></section>
+      <section id="signup-portal" className="login-portal login-section-reveal"><div className="login-portal-copy"><span className="login-section-label">CLC UNIMAS PORTAL</span><h2>Your next step starts here.</h2><p>Sign in to submit availability, discover outreach activities, and connect with the people serving alongside you.</p><div className="login-portal-points"><span><CheckCircle2 /> Student workspace</span><span><CheckCircle2 /> Outreach coordination</span></div></div><div className="login-signin-card"><div className="login-signin-heading"><div><span className="login-card-kicker">WELCOME IN</span><h3>Continue to CLC</h3></div><span className="login-active-dot" aria-label="Portal active" /></div>{!isFirebaseConfigured && <div id="firebase-config-notice" className="app-alert-warning mt-5 text-xs"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><span className="font-medium">Firebase configuration needed:</span> Set your <code>VITE_FIREBASE_*</code> environment variables.</div></div>}{errorMessage && <div id="login-error-banner" className="app-alert-error mt-4 text-xs"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{errorMessage}</span></div>}<button id="google-signin-button" type="button" onClick={handleSignIn} disabled={isSubmitting} className="login-google-button mt-6">{isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Signing in...</span></> : <><span className="google-mark">G</span><span>Sign in with Google</span><ArrowRight className="ml-auto h-4 w-4" /></>}</button><p id="login-footnote" className="login-signin-note">Your Google account keeps your availability and community connections in one place.</p></div></section>
+      <section id="vision" className="login-info-section login-section-reveal"><div className="login-info-copy"><span className="login-section-label"><Eye /> Vision statement</span><h2>We want to see</h2><blockquote>“A community of Christ-centered multiplying disciples, who love and disciple one another, expanding from UNIMAS to family, church, work and beyond.”</blockquote><p>Rooted in Acts 2, our vision expands outward in ripples, touching student life, families, and local fellowships beyond campus.</p></div><div className="login-photo-panel"><img src="/Picture1.png" alt="CLC student community" /><span>Student fellowship community <small>Acts 2:40-47</small></span></div></section>
+      <section id="mission" className="login-info-section login-info-section-reverse login-section-reveal"><div className="login-info-copy"><span className="login-section-label"><Flag /> Mission mandate</span><h2>We are committed to</h2><blockquote>“Build Christ-centered multiplying disciples through win, build, train and send.”</blockquote><p>We help people truly follow Jesus and multiply disciples in the power of the Holy Spirit.</p></div><div className="login-framework"><span>WIN <small>Witness</small></span><span>BUILD <small>Mentoring</small></span><span>TRAIN <small>Equip</small></span><span>SEND <small>Beyond</small></span></div></section>
+      <section id="posture" className="login-prayer login-section-reveal"><span className="login-section-label">Our posture</span><h2>Prayer is our foundation.</h2><p>We believe only God can change hearts and cause people to grow. We stay in a posture of prayer as we serve our campus.</p><div className="login-prayer-tags"><span>Prayer walks</span><span>Outreach together</span><span>Campus fellowship</span></div></section>
+      <section id="strategies" className="login-strategies login-section-reveal"><div className="login-strategy-heading"><span className="login-section-label"><BookOpen /> Our strategies</span><h2>Four stages. One shared journey.</h2><p>Explore how we guide and empower every student.</p></div><div className="login-strategy-tabs" role="tablist" aria-label="CLC strategy stages">{(Object.keys(strategies) as StrategyKey[]).map((key) => <button key={key} type="button" role="tab" aria-selected={activeStrategy === key} className={activeStrategy === key ? 'is-active' : ''} onClick={() => setActiveStrategy(key)}>{strategies[key].label}</button>)}</div><div className="login-strategy-panel" role="tabpanel"><span className="login-card-kicker">Stage {Object.keys(strategies).indexOf(activeStrategy) + 1} · {active.detail}</span><h3><strong>{active.label}:</strong> {active.title}</h3><p>{active.text}</p><div className="login-strategy-footer"><span><MessageCircle /> Relational</span><span><UsersRound /> Community</span><span><ArrowRight /> Multiply</span></div></div></section>
+      <section id="activities" className="login-activities login-section-reveal"><div><span className="login-section-label">Make room to serve</span><h2>Upcoming outreach activities</h2></div><div className="login-event-list"><article><b><small>SAT</small>14</b><div><h3>DMPR <span>6 slots left</span></h3><p>08:30–11:30 · Packing & distribution</p><small><MapPin /> Surau Al-Hidayah, Kota Samarahan</small></div></article><article><b><small>SUN</small>15</b><div><h3>FOC Outreach <span>4 slots left</span></h3><p>14:00–17:00 · Digital literacy & tutoring</p><small><MapPin /> Kota Samarahan Public Hall</small></div></article><article><b><small>SAT</small>21</b><div><h3>Beach Trip 2026 <span>8 slots</span></h3><p>09:00–12:00 · Wellness visits & singing</p><small><MapPin /> Sri Aman Golden Years Home</small></div></article></div></section>
+      <section className="login-bottom-cta"><h2>Ready to journey and serve?</h2><p>Sign in to submit your availability or join our discipleship cohort.</p><button type="button" className="login-light-cta" onClick={scrollToLogin}>Register your availability <ArrowRight /></button></section>
+    </main><footer className="login-footer">CLC UNIMAS · Caring Loving Community · Matthew 28:18-20</footer>
+  </div>;
 };
