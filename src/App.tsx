@@ -35,7 +35,7 @@ const AppContent: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-text">
-              CLC Outreach Availability
+              CLC Outreach App
             </h2>
             <p className="text-xs text-muted">
               Verifying authentication state...

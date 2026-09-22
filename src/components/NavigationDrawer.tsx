@@ -114,7 +114,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             <div className="flex items-center gap-3">
               <img src="/CLC.png" alt="CLC" className="h-10 w-16 rounded-app-sm object-cover" />
               <div>
-                <h2 className="text-sm font-bold text-text">CLC Outreach</h2>
+                <h2 className="text-sm font-bold text-text">CLC Outreach App</h2>
                 <p className="text-xs text-muted">Navigation</p>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ClipboardCheck, PartyPopper, Settings, Shield, UserCircle, Users, Calendar } from 'lucide-react';
+import { Calendar, ClipboardCheck, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
 import { AdminUserManagementPage } from './AdminUserManagementPage';
 import { OrganizerAvailabilityWorkspace } from './OrganizerAvailabilityWorkspace';
 import { SemesterManagerModal } from './SemesterManagerModal';
@@ -10,6 +10,7 @@ import { ProfilePage } from './ProfilePage';
 import { OrganizerStudentList } from './OrganizerStudentList';
 import { FriendsPage } from './FriendsPage';
 import { OrganizerApprovalsPage } from './OrganizerApprovalsPage';
+import { HomePage } from './HomePage';
 import { useAvailability } from '../hooks/useAvailability';
 import type { UserProfile } from '../types';
 
@@ -18,9 +19,10 @@ interface OrganizerDashboardProps {
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'availability_workspace' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
+type OrganizerTab = 'home' | 'availability_workspace' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'home', label: 'Home', icon: Home },
   { id: 'availability_workspace', label: 'Availability', icon: Calendar },
   { id: 'events', label: 'Events', icon: PartyPopper },
   { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
@@ -34,7 +36,7 @@ const ADMIN_TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{
 
 export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, logout }) => {
   const { activeSemester } = useAvailability();
-  const [activeTab, setActiveTab] = useState<OrganizerTab>('availability_workspace');
+  const [activeTab, setActiveTab] = useState<OrganizerTab>('home');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -122,7 +124,12 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        {activeTab === 'user_management' ? (
+        {activeTab === 'home' ? (
+          <HomePage
+            displayName={user.displayName}
+            activeSemesterName={activeSemester?.name}
+          />
+        ) : activeTab === 'user_management' ? (
           <AdminUserManagementPage user={user} />
         ) : activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('availability_workspace')} onProfileUpdated={() => setActiveTab('availability_workspace')} />

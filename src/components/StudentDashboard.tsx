@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CalendarDays, Loader2, Users } from 'lucide-react';
+import { Calendar, CalendarDays, Home, Loader2, Users } from 'lucide-react';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
 import { AvailabilityGrid } from './AvailabilityGrid';
 import { StudentEvents } from './StudentEvents';
 import { ProfilePage } from './ProfilePage';
 import { FriendsPage } from './FriendsPage';
+import { HomePage } from './HomePage';
 import { useAuth } from '../context/AuthContext';
 import { getCompleteUserProfile } from '../services/userService';
 import type { UserProfile } from '../types';
@@ -15,9 +16,10 @@ interface StudentDashboardProps {
   logout: () => Promise<void>;
 }
 
-type StudentTab = 'my_availability' | 'events' | 'friends' | 'profile';
+type StudentTab = 'home' | 'my_availability' | 'events' | 'friends' | 'profile';
 
 const TABS: { id: StudentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'home', label: 'Home', icon: Home },
   { id: 'my_availability', label: 'My Availability', icon: Calendar },
   { id: 'events', label: 'Events', icon: CalendarDays },
   { id: 'friends', label: 'Friends', icon: Users },
@@ -34,7 +36,7 @@ const isProfileComplete = (profile: Awaited<ReturnType<typeof getCompleteUserPro
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout }) => {
   const { refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<StudentTab>('my_availability');
+  const [activeTab, setActiveTab] = useState<StudentTab>('home');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileStatus, setProfileStatus] = useState<'loading' | 'incomplete' | 'complete'>('loading');
@@ -100,8 +102,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
               <img src="/CLC.png" alt="CLC" className="h-full w-full object-cover" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-text">CLC Outreach Availability</h1>
-              <p className="text-xs text-muted">Slot Coordination</p>
+              <h1 className="text-sm font-bold text-text">CLC Outreach App</h1>
+              <p className="text-xs text-muted">Movements Everywhere</p>
             </div>
           </div>
 
@@ -142,7 +144,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        {activeTab === 'profile' ? (
+        {activeTab === 'home' ? (
+          <HomePage
+            displayName={user.displayName}
+          />
+        ) : activeTab === 'profile' ? (
           <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={handleProfileUpdated} />
         ) : activeTab === 'friends' ? (
           <FriendsPage currentUserId={user.uid} isStudent />
