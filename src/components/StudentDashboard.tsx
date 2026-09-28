@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { CalendarDays, Home, Loader2, Users } from 'lucide-react';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
-import { StudentEvents } from './StudentEvents';
-import { ProfilePage } from './ProfilePage';
-import { FriendsPage } from './FriendsPage';
 import { HomePage } from './HomePage';
 import { useAuth } from '../context/AuthContext';
 import { getCompleteUserProfile } from '../services/userService';
 import type { UserProfile } from '../types';
+
+const StudentEvents = lazy(() => import('./StudentEvents').then((module) => ({ default: module.StudentEvents })));
+const ProfilePage = lazy(() => import('./ProfilePage').then((module) => ({ default: module.ProfilePage })));
+const FriendsPage = lazy(() => import('./FriendsPage').then((module) => ({ default: module.FriendsPage })));
 
 interface StudentDashboardProps {
   user: UserProfile;
@@ -142,21 +143,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        <div key={activeTab} className="page-view-fade">
-          {activeTab === 'home' ? (
-            <HomePage
-              displayName={user.displayName}
-            />
-          ) : activeTab === 'profile' ? (
-            <ProfilePage user={user} onBack={() => setActiveTab('home')} onProfileUpdated={handleProfileUpdated} />
-          ) : activeTab === 'friends' ? (
-            <FriendsPage currentUserId={user.uid} isStudent />
-          ) : activeTab === 'events' ? (
-            <StudentEvents user={user} />
-          ) : (
-            <HomePage displayName={user.displayName} />
-          )}
-        </div>
+        <Suspense fallback={<div className="app-loading-state">Loading page...</div>}>
+          <div key={activeTab} className="page-view-fade">
+            {activeTab === 'home' ? (
+              <HomePage
+                displayName={user.displayName}
+              />
+            ) : activeTab === 'profile' ? (
+              <ProfilePage user={user} onBack={() => setActiveTab('home')} onProfileUpdated={handleProfileUpdated} />
+            ) : activeTab === 'friends' ? (
+              <FriendsPage currentUserId={user.uid} isStudent />
+            ) : activeTab === 'events' ? (
+              <StudentEvents user={user} />
+            ) : (
+              <HomePage displayName={user.displayName} />
+            )}
+          </div>
+        </Suspense>
       </main>
 
       {profileStatus === 'complete' && (

@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { ClipboardCheck, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
-import { AdminUserManagementPage } from './AdminUserManagementPage';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
-import { OrganizerEvents } from './OrganizerEvents';
-import { ProfilePage } from './ProfilePage';
-import { OrganizerStudentList } from './OrganizerStudentList';
-import { FriendsPage } from './FriendsPage';
-import { OrganizerApprovalsPage } from './OrganizerApprovalsPage';
 import { HomePage } from './HomePage';
 import { useAvailability } from '../hooks/useAvailability';
 import type { UserProfile } from '../types';
+
+const AdminUserManagementPage = lazy(() => import('./AdminUserManagementPage').then((module) => ({ default: module.AdminUserManagementPage })));
+const OrganizerEvents = lazy(() => import('./OrganizerEvents').then((module) => ({ default: module.OrganizerEvents })));
+const ProfilePage = lazy(() => import('./ProfilePage').then((module) => ({ default: module.ProfilePage })));
+const OrganizerStudentList = lazy(() => import('./OrganizerStudentList').then((module) => ({ default: module.OrganizerStudentList })));
+const FriendsPage = lazy(() => import('./FriendsPage').then((module) => ({ default: module.FriendsPage })));
+const OrganizerApprovalsPage = lazy(() => import('./OrganizerApprovalsPage').then((module) => ({ default: module.OrganizerApprovalsPage })));
 
 interface OrganizerDashboardProps {
   user: UserProfile;
@@ -122,28 +123,30 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        <div key={activeTab} className="page-view-fade">
-          {activeTab === 'home' ? (
-            <HomePage
-              displayName={user.displayName}
-              activeSemesterName={activeSemester?.name}
-            />
-          ) : activeTab === 'user_management' ? (
-            <AdminUserManagementPage user={user} />
-          ) : activeTab === 'profile' ? (
-            <ProfilePage user={user} onBack={() => setActiveTab('home')} onProfileUpdated={() => setActiveTab('home')} />
-          ) : activeTab === 'friends' ? (
-            <FriendsPage currentUserId={user.uid} />
-          ) : activeTab === 'student_directory' ? (
-            <OrganizerStudentList />
-          ) : activeTab === 'approvals' ? (
-            <OrganizerApprovalsPage />
-          ) : activeTab === 'events' ? (
-            <OrganizerEvents user={user} />
-          ) : (
-            <HomePage displayName={user.displayName} activeSemesterName={activeSemester?.name} />
-          )}
-        </div>
+        <Suspense fallback={<div className="app-loading-state">Loading page...</div>}>
+          <div key={activeTab} className="page-view-fade">
+            {activeTab === 'home' ? (
+              <HomePage
+                displayName={user.displayName}
+                activeSemesterName={activeSemester?.name}
+              />
+            ) : activeTab === 'user_management' ? (
+              <AdminUserManagementPage user={user} />
+            ) : activeTab === 'profile' ? (
+              <ProfilePage user={user} onBack={() => setActiveTab('home')} onProfileUpdated={() => setActiveTab('home')} />
+            ) : activeTab === 'friends' ? (
+              <FriendsPage currentUserId={user.uid} />
+            ) : activeTab === 'student_directory' ? (
+              <OrganizerStudentList />
+            ) : activeTab === 'approvals' ? (
+              <OrganizerApprovalsPage />
+            ) : activeTab === 'events' ? (
+              <OrganizerEvents user={user} />
+            ) : (
+              <HomePage displayName={user.displayName} activeSemesterName={activeSemester?.name} />
+            )}
+          </div>
+        </Suspense>
       </main>
 
       <SemesterManagerModal
