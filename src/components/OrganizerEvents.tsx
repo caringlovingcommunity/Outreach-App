@@ -54,7 +54,7 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
     slotId: string;
     participants: AvailableStudent[];
   } | null>(null);
-  const [activeView, setActiveView] = useState<EventsView>('manage');
+  const [activeView, setActiveView] = useState<EventsView>('slots');
 
   useEffect(() => {
     setLoading(true);
@@ -218,8 +218,8 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
 
       <div className="mt-5 grid grid-cols-2 border-b border-border" role="tablist" aria-label="Event views">
         {([
-          ['manage', 'Manage Events'],
           ['slots', 'View Events'],
+          ['manage', 'Manage Events'],
         ] as const).map(([view, label]) => (
           <button
             key={view}

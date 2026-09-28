@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, ClipboardCheck, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
+import { ClipboardCheck, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
 import { AdminUserManagementPage } from './AdminUserManagementPage';
-import { OrganizerAvailabilityWorkspace } from './OrganizerAvailabilityWorkspace';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
@@ -19,11 +18,10 @@ interface OrganizerDashboardProps {
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'home' | 'availability_workspace' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
+type OrganizerTab = 'home' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'availability_workspace', label: 'Availability', icon: Calendar },
   { id: 'events', label: 'Events', icon: PartyPopper },
   { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
@@ -124,26 +122,28 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        {activeTab === 'home' ? (
-          <HomePage
-            displayName={user.displayName}
-            activeSemesterName={activeSemester?.name}
-          />
-        ) : activeTab === 'user_management' ? (
-          <AdminUserManagementPage user={user} />
-        ) : activeTab === 'profile' ? (
-          <ProfilePage user={user} onBack={() => setActiveTab('availability_workspace')} onProfileUpdated={() => setActiveTab('availability_workspace')} />
-        ) : activeTab === 'friends' ? (
-          <FriendsPage currentUserId={user.uid} />
-        ) : activeTab === 'student_directory' ? (
-          <OrganizerStudentList />
-        ) : activeTab === 'approvals' ? (
-          <OrganizerApprovalsPage />
-        ) : activeTab === 'events' ? (
-          <OrganizerEvents user={user} />
-        ) : (
-          <OrganizerAvailabilityWorkspace activeSemester={activeSemester} />
-        )}
+        <div key={activeTab} className="page-view-fade">
+          {activeTab === 'home' ? (
+            <HomePage
+              displayName={user.displayName}
+              activeSemesterName={activeSemester?.name}
+            />
+          ) : activeTab === 'user_management' ? (
+            <AdminUserManagementPage user={user} />
+          ) : activeTab === 'profile' ? (
+            <ProfilePage user={user} onBack={() => setActiveTab('home')} onProfileUpdated={() => setActiveTab('home')} />
+          ) : activeTab === 'friends' ? (
+            <FriendsPage currentUserId={user.uid} />
+          ) : activeTab === 'student_directory' ? (
+            <OrganizerStudentList />
+          ) : activeTab === 'approvals' ? (
+            <OrganizerApprovalsPage />
+          ) : activeTab === 'events' ? (
+            <OrganizerEvents user={user} />
+          ) : (
+            <HomePage displayName={user.displayName} activeSemesterName={activeSemester?.name} />
+          )}
+        </div>
       </main>
 
       <SemesterManagerModal

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, CalendarClock, Eye, Flag } from 'lucide-react';
 
 type HomeView = 'info' | 'calender';
@@ -32,7 +32,28 @@ export const HomePage: React.FC<HomePageProps> = ({
   const firstName = displayName?.trim().split(' ')[0] || 'there';
   const [activeView, setActiveView] = useState<HomeView>('info');
   const [activeStrategy, setActiveStrategy] = useState<StrategyKey>('win');
-  const active = strategies[activeStrategy];
+  const strategyKeys = Object.keys(strategies) as StrategyKey[];
+  const strategyTrackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const track = strategyTrackRef.current;
+    if (!track) return;
+
+    const handleScroll = () => {
+      const slideWidth = track.clientWidth;
+      if (!slideWidth) return;
+      const nextIndex = Math.min(strategyKeys.length - 1, Math.round(track.scrollLeft / slideWidth));
+      setActiveStrategy(strategyKeys[nextIndex]);
+    };
+
+    track.addEventListener('scroll', handleScroll, { passive: true });
+    return () => track.removeEventListener('scroll', handleScroll);
+  }, [strategyKeys.length]);
+
+  const selectStrategy = (key: StrategyKey) => {
+    setActiveStrategy(key);
+    strategyTrackRef.current?.children[strategyKeys.indexOf(key)].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  };
 
   return (
     <section className="home-page mx-auto max-w-5xl pb-6">
@@ -92,11 +113,19 @@ export const HomePage: React.FC<HomePageProps> = ({
             <section className="home-info-section border-t border-border pt-8">
               <div className="text-center"><div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary"><BookOpen className="h-4 w-4" /> Our strategies</div><h2 className="mt-3 text-2xl font-bold text-text">W B T S</h2><p className="mt-2 text-sm text-muted">See how we guide and empower every student.</p></div>
               <div className="mt-5 grid grid-cols-4 border-b border-border" role="tablist" aria-label="Home strategy stages">
-                {(Object.keys(strategies) as StrategyKey[]).map((key) => <button key={key} type="button" role="tab" aria-selected={activeStrategy === key} onClick={() => setActiveStrategy(key)} className={`min-h-11 border-b-2 px-2 text-xs font-semibold transition-colors ${activeStrategy === key ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'}`}>{strategies[key].label}</button>)}
+                {strategyKeys.map((key) => <button key={key} type="button" role="tab" aria-selected={activeStrategy === key} onClick={() => selectStrategy(key)} className={`min-h-11 border-b-2 px-2 text-xs font-semibold transition-colors ${activeStrategy === key ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'}`}>{strategies[key].label}</button>)}
               </div>
-              <div key={activeStrategy} className="home-strategy-panel mt-5 grid gap-5 sm:grid-cols-[10rem_1fr] sm:items-start">
-                <img src={active.image} alt={`${active.label}: ${active.title}`} className="h-50 w-full rounded-lg object-cover sm:h-28" />
-                <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Stage {Object.keys(strategies).indexOf(activeStrategy) + 1} · {active.detail}</p><h3 className="mt-2 text-lg font-bold text-text"><strong>{active.label}:</strong> {active.title}</h3><blockquote className="mt-3 border-l-4 border-primary bg-primary-soft p-4 text-sm italic leading-7 text-text">“{active.text}”</blockquote></div>
+              <div ref={strategyTrackRef} className="home-strategy-track mt-5" aria-label="Swipe through strategies">
+                {strategyKeys.map((key, index) => {
+                  const strategy = strategies[key];
+                  return <article key={key} className="home-strategy-panel grid gap-5 sm:grid-cols-[10rem_1fr] sm:items-start" role="tabpanel" aria-label={`${strategy.label}, stage ${index + 1}`}>
+                    <img src={strategy.image} alt={`${strategy.label}: ${strategy.title}`} className="h-50 w-full rounded-lg object-cover sm:h-28" />
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Stage {index + 1} · {strategy.detail}</p><h3 className="mt-2 text-lg font-bold text-text"><strong>{strategy.label}:</strong> {strategy.title}</h3><blockquote className="mt-3 border-l-4 border-primary bg-primary-soft p-4 text-sm italic leading-7 text-text">“{strategy.text}”</blockquote></div>
+                  </article>;
+                })}
+              </div>
+              <div className="mt-4 flex justify-center gap-2" role="tablist" aria-label="Home strategy slides">
+                {strategyKeys.map((key) => <button key={key} type="button" role="tab" aria-label={`Show ${strategies[key].label} strategy`} aria-selected={activeStrategy === key} onClick={() => selectStrategy(key)} className={`h-2.5 rounded-full transition-all ${activeStrategy === key ? 'w-7 bg-primary' : 'w-2.5 bg-primary-muted hover:bg-primary'}`} />)}
               </div>
             </section>
 

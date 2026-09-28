@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CalendarDays, Home, Loader2, Users } from 'lucide-react';
+import { CalendarDays, Home, Loader2, Users } from 'lucide-react';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
-import { AvailabilityGrid } from './AvailabilityGrid';
 import { StudentEvents } from './StudentEvents';
 import { ProfilePage } from './ProfilePage';
 import { FriendsPage } from './FriendsPage';
@@ -16,11 +15,10 @@ interface StudentDashboardProps {
   logout: () => Promise<void>;
 }
 
-type StudentTab = 'home' | 'my_availability' | 'events' | 'friends' | 'profile';
+type StudentTab = 'home' | 'events' | 'friends' | 'profile';
 
 const TABS: { id: StudentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'my_availability', label: 'My Availability', icon: Calendar },
   { id: 'events', label: 'Events', icon: CalendarDays },
   { id: 'friends', label: 'Friends', icon: Users },
 ];
@@ -82,7 +80,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
   const handleProfileUpdated = async () => {
     await refreshProfile();
     setProfileStatus('complete');
-    setActiveTab('my_availability');
+    setActiveTab('home');
   };
 
   if (profileStatus === 'loading') {
@@ -144,19 +142,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6 pb-40 sm:px-6 sm:py-8 sm:pb-10">
-        {activeTab === 'home' ? (
-          <HomePage
-            displayName={user.displayName}
-          />
-        ) : activeTab === 'profile' ? (
-          <ProfilePage user={user} onBack={() => setActiveTab('my_availability')} onProfileUpdated={handleProfileUpdated} />
-        ) : activeTab === 'friends' ? (
-          <FriendsPage currentUserId={user.uid} isStudent />
-        ) : activeTab === 'events' ? (
-          <StudentEvents user={user} />
-        ) : (
-          <AvailabilityGrid />
-        )}
+        <div key={activeTab} className="page-view-fade">
+          {activeTab === 'home' ? (
+            <HomePage
+              displayName={user.displayName}
+            />
+          ) : activeTab === 'profile' ? (
+            <ProfilePage user={user} onBack={() => setActiveTab('home')} onProfileUpdated={handleProfileUpdated} />
+          ) : activeTab === 'friends' ? (
+            <FriendsPage currentUserId={user.uid} isStudent />
+          ) : activeTab === 'events' ? (
+            <StudentEvents user={user} />
+          ) : (
+            <HomePage displayName={user.displayName} />
+          )}
+        </div>
       </main>
 
       {profileStatus === 'complete' && (
