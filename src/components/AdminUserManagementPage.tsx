@@ -1,9 +1,10 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { deleteUserProfiles, getAllUsers, getUserFullDetail, updatePendingApprovalBypass, updateUserRole } from '../services/organizerService';
+import { deleteUserProfiles, getAllUsers, getUserFullDetail, updateUserRole } from '../services/organizerService';
 import type { UserProfile } from '../types';
 import type { PublicUserProfile } from '../types/user';
+import { AutoApproveMembersToggle } from './AutoApproveMembersToggle';
 
 interface AdminUserManagementPageProps {
   user: UserProfile;
@@ -45,15 +46,6 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
     }
   };
 
-  const togglePendingApprovalBypass = async (uid: string, enabled: boolean) => {
-    try {
-      await updatePendingApprovalBypass(uid, enabled);
-      setUsers((current) => current.map((member) => member.uid === uid ? { ...member, pendingApprovalBypass: enabled } : member));
-    } catch {
-      setError('Unable to update pending approval bypass.');
-    }
-  };
-
   const deleteProfile = async (member: typeof users[number]) => {
     if (member.uid === user.uid || !window.confirm(`Delete the profile records for ${member.displayName}?`)) return;
     try {
@@ -88,6 +80,7 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
       </div>
 
       {error && <div className="app-alert-error">{error}</div>}
+      <AutoApproveMembersToggle />
       <div className="app-panel p-4">
         <label className="app-label">Search users</label>
         <input className="app-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or role" />
@@ -116,15 +109,6 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
                   <option value="organizer">Organizer</option>
                   <option value="admin">Admin</option>
                 </select>
-                <label className="flex items-center gap-2 rounded-app-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    checked={member.pendingApprovalBypass === true}
-                    onChange={(event) => void togglePendingApprovalBypass(member.uid, event.target.checked)}
-                    disabled={member.uid === user.uid || member.role === 'organizer' || member.role === 'admin'}
-                  />
-                  Allow bypass
-                </label>
                 <button type="button" className="app-button-secondary text-error" onClick={() => void deleteProfile(member)} disabled={member.uid === user.uid}>Delete Profile</button>
               </div>
             </div>

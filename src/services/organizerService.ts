@@ -10,11 +10,13 @@ import {
   updateDoc,
   writeBatch,
   serverTimestamp,
+  setDoc,
   deleteField,
   limit,
   orderBy 
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import type { AppSettings } from '../types';
 import type { PublicUserProfile, PrivateUserProfile } from '../types/user';
 
 export interface DirectoryUser extends PublicUserProfile {
@@ -152,8 +154,16 @@ export const updateUserRole = async (memberUid: string, role: 'student' | 'organ
   await updateDoc(doc(db, 'users_public', memberUid), { role });
 };
 
-export const updatePendingApprovalBypass = async (memberUid: string, enabled: boolean): Promise<void> => {
-  await updateDoc(doc(db, 'users_public', memberUid), { pendingApprovalBypass: enabled });
+export const getAppSettings = async (): Promise<AppSettings | null> => {
+  const settingsSnapshot = await getDoc(doc(db, 'app_settings', 'main'));
+  return settingsSnapshot.exists() ? settingsSnapshot.data() as AppSettings : null;
+};
+
+export const setAutoApproveMembers = async (enabled: boolean): Promise<void> => {
+  await setDoc(doc(db, 'app_settings', 'main'), {
+    autoApproveMembers: enabled,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 };
 
 export const deleteUserProfiles = async (userId: string): Promise<void> => {

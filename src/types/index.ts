@@ -7,12 +7,16 @@ export interface UserProfile {
   photoURL: string;
   role: UserRole;
   visionCastingAccepted?: boolean;
-  pendingApprovalBypass?: boolean;
   membershipStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILTERED';
   approvedByUid?: string;
   approvedByEmail?: string;
   approvedAt?: any;
   createdAt: any;
+}
+
+export interface AppSettings {
+  autoApproveMembers: boolean;
+  updatedAt?: any;
 }
 
 export interface Semester {

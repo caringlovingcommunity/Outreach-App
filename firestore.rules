@@ -27,6 +27,11 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.visionCastingAccepted == true);
     }
 
+    function autoApproveMembersEnabled() {
+      return exists(/databases/$(database)/documents/app_settings/main) &&
+        get(/databases/$(database)/documents/app_settings/main).data.autoApproveMembers == true;
+    }
+
     // Temporary migration access for profiles created before the privacy split.
     match /users/{userId} {
       allow read: if isOwner(userId);
@@ -38,8 +43,12 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
         request.resource.data.uid == userId &&
         ((request.resource.data.role == 'student' &&
-          request.resource.data.visionCastingAccepted == false &&
-          request.resource.data.membershipStatus == 'PENDING') ||
+          ((!autoApproveMembersEnabled() &&
+            request.resource.data.visionCastingAccepted == false &&
+            request.resource.data.membershipStatus == 'PENDING') ||
+            (autoApproveMembersEnabled() &&
+              request.resource.data.visionCastingAccepted == true &&
+              request.resource.data.membershipStatus == 'APPROVED'))) ||
           (request.resource.data.role == 'organizer' &&
             request.auth.uid == 'REPLACE_WITH_DEVELOPER_UID' &&
             request.resource.data.visionCastingAccepted == true &&
@@ -80,6 +89,16 @@ service cloud.firestore {
       allow update: if isOwner(userId) &&
         request.resource.data.uid == resource.data.uid;
       allow delete: if isAdmin() && request.auth.uid != userId;
+    }
+
+    match /app_settings/{configId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOrganizer() &&
+        configId == 'main' &&
+        request.resource.data.keys().hasOnly(['autoApproveMembers', 'updatedAt']) &&
+        request.resource.data.autoApproveMembers is bool &&
+        request.resource.data.updatedAt is timestamp;
+      allow delete: if false;
     }
 
     match /semesters/{semesterId} {

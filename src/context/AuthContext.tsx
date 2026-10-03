@@ -8,6 +8,7 @@ import {
 import type { User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, isFirebaseConfigured } from '../services/firebase';
+import { getAppSettings } from '../services/organizerService';
 import type { UserProfile, UserRole } from '../types';
 import type { PublicUserProfile } from '../types/user';
 
@@ -56,7 +57,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         photoURL: profile.photoURL || '',
         role: profile.role,
         visionCastingAccepted: profile.visionCastingAccepted === true,
-        pendingApprovalBypass: profile.pendingApprovalBypass === true,
         membershipStatus: profile.membershipStatus,
         createdAt: profile.createdAt,
       } : previous);
@@ -81,14 +81,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const legacyProfileSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
             const legacyData = legacyProfileSnap.exists() ? legacyProfileSnap.data() : {};
             const role = legacyData.role === 'admin' ? 'admin' : legacyData.role === 'organizer' ? 'organizer' : 'student';
+            const appSettings = role === 'student' ? await getAppSettings() : null;
+            const autoApproved = role === 'student' && appSettings?.autoApproveMembers === true;
             const newPublicProfile = {
               uid: firebaseUser.uid,
               displayName: legacyData.displayName || firebaseUser.displayName || 'User',
               photoURL: legacyData.photoURL || firebaseUser.photoURL || '',
               role: role as UserRole,
-              visionCastingAccepted: true,
-              pendingApprovalBypass: true,
-              membershipStatus: 'APPROVED',
+              visionCastingAccepted: role === 'organizer' || autoApproved,
+              membershipStatus: role === 'organizer' || autoApproved ? 'APPROVED' : 'PENDING',
+              ...(autoApproved ? { approvedAt: serverTimestamp() } : {}),
               createdAt: serverTimestamp(),
             };
             const newPrivateProfile = {
@@ -110,7 +112,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               photoURL: publicProfile.photoURL || '',
               role: publicProfile.role,
               visionCastingAccepted: publicProfile.visionCastingAccepted === true,
-              pendingApprovalBypass: publicProfile.pendingApprovalBypass === true,
               membershipStatus: publicProfile.membershipStatus,
               createdAt: publicProfile.createdAt,
             });
@@ -125,7 +126,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               photoURL: publicProfile.photoURL ?? (firebaseUser.photoURL || ''),
               role: (publicProfile.role as UserRole) || 'student',
               visionCastingAccepted: publicProfile.visionCastingAccepted === true,
-              pendingApprovalBypass: publicProfile.pendingApprovalBypass === true,
               membershipStatus: publicProfile.membershipStatus || 'PENDING',
               createdAt: publicProfile.createdAt,
             };
@@ -153,7 +153,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 photoURL: profile.photoURL || '',
                 role: profile.role || 'student',
                 visionCastingAccepted: profile.visionCastingAccepted === true,
-                pendingApprovalBypass: profile.pendingApprovalBypass === true,
                 membershipStatus: profile.membershipStatus,
                 approvedByUid: profile.approvedByUid,
                 approvedByEmail: profile.approvedByEmail,

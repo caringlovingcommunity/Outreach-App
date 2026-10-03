@@ -5,12 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import { PendingApprovalPage } from './PendingApprovalPage';
 import { getCompleteUserProfile } from '../services/userService';
 import { isProfileComplete } from '../utils/profile';
+import type { UserProfile } from '../types';
 
 interface Props {
   children: ReactNode;
 }
 
-const requiresPendingApproval = (): boolean => false;
+const requiresPendingApproval = (user: UserProfile | null): boolean =>
+  !!user &&
+  user.role !== 'organizer' &&
+  user.role !== 'admin' &&
+  user.visionCastingAccepted !== true;
 
 export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -19,12 +24,13 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
-    if (!user || !requiresPendingApproval()) {
+    if (!user || user.role === 'organizer' || user.role === 'admin' || requiresPendingApproval(user)) {
       setCheckingProfile(false);
       return;
     }
 
     let isMounted = true;
+    setCheckingProfile(true);
     void getCompleteUserProfile(user.uid).then((profile) => {
       if (isMounted) {
         setComplete(isProfileComplete(profile));
@@ -54,7 +60,7 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiresPendingApproval()) {
+  if (requiresPendingApproval(user)) {
     return <PendingApprovalPage />;
   }
 
@@ -75,12 +81,13 @@ export const RequireRegistration: React.FC<Props> = ({ children }) => {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
-    if (!user || !requiresPendingApproval()) {
+    if (!user || user.role === 'organizer' || user.role === 'admin' || requiresPendingApproval(user)) {
       setCheckingProfile(false);
       return;
     }
 
     let isMounted = true;
+    setCheckingProfile(true);
     void getCompleteUserProfile(user.uid).then((profile) => {
       if (isMounted) {
         setComplete(isProfileComplete(profile));
@@ -104,7 +111,7 @@ export const RequireRegistration: React.FC<Props> = ({ children }) => {
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'organizer' || user.role === 'admin') return <Navigate to="/" replace />;
-  if (requiresPendingApproval()) return <PendingApprovalPage />;
+  if (requiresPendingApproval(user)) return <PendingApprovalPage />;
   if (checkingProfile) {
     return <div className="app-shell flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>;
   }

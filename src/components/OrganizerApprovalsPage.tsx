@@ -14,6 +14,7 @@ import {
 } from '../services/organizerService';
 import type { ApprovalMember } from '../services/organizerService';
 import { StudentApprovalCard } from './organizer/StudentApprovalCard';
+import { AutoApproveMembersToggle } from './AutoApproveMembersToggle';
 
 const ADMIN_UID = 'REPLACE_WITH_DEVELOPER_UID';
 type ApprovalTab = 'pending' | 'approved' | 'rejected' | 'filtered';
@@ -136,6 +137,8 @@ export const OrganizerApprovalsPage: React.FC = () => {
         <p className="text-2xl font-bold sm:text-3xl">Member Approvals</p>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">Review Vision Casting attendees and manage access to the outreach team.</p>
       </div>
+
+      <AutoApproveMembersToggle />
 
       <div className="grid grid-cols-4 border-b border-border" role="tablist" aria-label="Member approval statuses">
         {approvalTabs.map((tab) => (
