@@ -35,7 +35,7 @@ const isProfileComplete = (profile: Awaited<ReturnType<typeof getCompleteUserPro
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout }) => {
   const { refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<StudentTab>('home');
+  const [activeTab, setActiveTab] = useState<StudentTab>('friends');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileStatus, setProfileStatus] = useState<'loading' | 'incomplete' | 'complete'>('loading');

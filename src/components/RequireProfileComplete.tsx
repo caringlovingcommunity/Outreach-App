@@ -24,7 +24,7 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role === 'organizer' || user.role === 'admin' || requiresPendingApproval(user)) {
+    if (!user || user.role === 'organizer' || user.role === 'admin') {
       setCheckingProfile(false);
       return;
     }
@@ -60,16 +60,16 @@ export const RequireProfileComplete: React.FC<Props> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiresPendingApproval(user)) {
-    return <PendingApprovalPage />;
-  }
-
   if (checkingProfile) {
     return <div className="app-shell flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>;
   }
 
   if (user.role !== 'organizer' && user.role !== 'admin' && !complete) {
     return <Navigate to="/register" state={{ from: location }} replace />;
+  }
+
+  if (requiresPendingApproval(user)) {
+    return <PendingApprovalPage />;
   }
 
   return children;
@@ -81,7 +81,7 @@ export const RequireRegistration: React.FC<Props> = ({ children }) => {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role === 'organizer' || user.role === 'admin' || requiresPendingApproval(user)) {
+    if (!user || user.role === 'organizer' || user.role === 'admin') {
       setCheckingProfile(false);
       return;
     }
@@ -111,10 +111,10 @@ export const RequireRegistration: React.FC<Props> = ({ children }) => {
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'organizer' || user.role === 'admin') return <Navigate to="/" replace />;
-  if (requiresPendingApproval(user)) return <PendingApprovalPage />;
   if (checkingProfile) {
     return <div className="app-shell flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>;
   }
+  if (complete && requiresPendingApproval(user)) return <PendingApprovalPage />;
   if (complete) return <Navigate to="/" replace />;
 
   return children;

@@ -37,7 +37,7 @@ const ADMIN_TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{
 
 export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, logout }) => {
   const { activeSemester } = useAvailability();
-  const [activeTab, setActiveTab] = useState<OrganizerTab>('home');
+  const [activeTab, setActiveTab] = useState<OrganizerTab>('friends');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);

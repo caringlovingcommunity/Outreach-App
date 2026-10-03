@@ -37,6 +37,62 @@ const emptyInput = (): ContactInput => ({
   remarks: "",
 });
 const DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DATE_BUCKETS = [
+  "Upcoming",
+  "Today",
+  "Yesterday",
+  "Last week",
+  "Last month",
+  "Last year",
+  "Older",
+  "Unknown date",
+] as const;
+type ContactDateBucket = typeof DATE_BUCKETS[number];
+
+const getContactDate = (contact: Contact): Date | null => {
+  const createdAt = contact.createdAt;
+  const date =
+    createdAt instanceof Date
+      ? createdAt
+      : typeof createdAt?.toDate === "function"
+        ? createdAt.toDate()
+        : null;
+  return date instanceof Date && Number.isFinite(date.getTime()) ? date : null;
+};
+
+const getContactDateBucket = (date: Date | null, now = new Date()): ContactDateBucket => {
+  if (!date) return "Unknown date";
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const contactDay = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysAgo = Math.floor((today - contactDay) / DAY_MS);
+  if (daysAgo < 0) return "Upcoming";
+  if (daysAgo === 0) return "Today";
+  if (daysAgo === 1) return "Yesterday";
+  if (daysAgo <= 7) return "Last week";
+  if (daysAgo <= 30) return "Last month";
+  if (daysAgo <= 365) return "Last year";
+  return "Older";
+};
+
+const getDateGroups = (contacts: Contact[]) => {
+  const groupedContacts = new Map<ContactDateBucket, Contact[]>(
+    DATE_BUCKETS.map((bucket) => [bucket, []]),
+  );
+
+  contacts.forEach((contact) => {
+    const bucket = getContactDateBucket(getContactDate(contact));
+    groupedContacts.get(bucket)?.push(contact);
+  });
+
+  return DATE_BUCKETS.map((bucket) => ({
+    bucket,
+    contacts: (groupedContacts.get(bucket) || []).sort((left, right) =>
+      (getContactDate(right)?.getTime() ?? 0) - (getContactDate(left)?.getTime() ?? 0),
+    ),
+  }));
+};
+
 const canDeleteContact = (contact: Contact): boolean => {
   if (contact.linkedUserId) return false;
   const createdAt = contact.createdAt;
@@ -328,6 +384,9 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
             ? `Added by ${contact.createdByName}`
             : responseLabels[contact.responseStatuses[0]] || "Outreach contact"}
         </p>
+        <p className="mt-1 text-xs font-medium text-text">
+          {getContactDate(contact)?.toLocaleDateString("en-GB") || "Date unavailable"}
+        </p>
         {contact.linkedUserId && (
           <p className="text-xs font-semibold text-primary">CLC Friends</p>
         )}
@@ -345,6 +404,34 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
         </button>
       )}
     </article>
+  );
+
+  const renderDateSection = (title: string, contacts: Contact[], community = false) => (
+    <section key={title}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-text">{title}</h3>
+        <span className="text-xs text-muted">{contacts.length}</span>
+      </div>
+      {contacts.length === 0 ? (
+        <p className="border-y border-border py-8 text-center text-sm text-muted">
+          No contacts in this group.
+        </p>
+      ) : (
+        <div className="mt-2 space-y-5">
+          {getDateGroups(contacts).map(({ bucket, contacts: bucketContacts }) => bucketContacts.length > 0 && (
+            <div key={bucket}>
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <h4 className="font-semibold text-text">{bucket}</h4>
+                <span className="text-xs text-muted">{bucketContacts.length}</span>
+              </div>
+              <div className="divide-y divide-border">
+                {bucketContacts.map((contact) => renderContact(contact, community))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 
   return (
@@ -380,72 +467,10 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       {(error || saveError) && (
         <div className="app-alert-error">{error || saveError}</div>
       )}
-      {/* <section>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text">My Disciples</h3>
-          <span className="text-xs text-muted">{myDisciples.length}</span>
-        </div>
-        <div className="mt-2 divide-y divide-border border-y border-border">
-          {myDisciples.length ? (
-            myDisciples.map((contact) => renderContact(contact))
-          ) : (
-            <p className="py-8 text-center text-sm text-muted">
-              Contacts assigned to you will appear here.
-            </p>
-          )}
-        </div>
-      </section> */}
-      <section>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text">My Contacts</h3>
-          <span className="text-xs text-muted">{ownContacts.length}</span>
-        </div>
-        <div className="mt-2 divide-y divide-border border-y border-border">
-          {ownContacts.length ? (
-            ownContacts.map((contact) => renderContact(contact))
-          ) : (
-            <p className="py-8 text-center text-sm text-muted">
-              Your outreach contacts will appear here.
-            </p>
-          )}
-        </div>
-      </section>
-      {/* <section>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text">Filtered</h3>
-          <span className="text-xs text-muted">{filteredContacts.length}</span>
-        </div>
-        <div className="mt-2 divide-y divide-border border-y border-border">
-          {filteredContacts.length ? (
-            filteredContacts.map((contact) => renderContact(contact))
-          ) : (
-            <p className="py-8 text-center text-sm text-muted">
-              Filtered contacts will appear here.
-            </p>
-          )}
-        </div>
-      </section> */}
-      <section>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text">
-            All Community Contacts
-          </h3>
-          <span className="text-xs text-muted">
-            {visibleCommunityContacts.length}
-          </span>
-        </div>
-        <div className="mt-2 divide-y divide-border border-y border-border">
-          {visibleCommunityContacts.length ? (
-            visibleCommunityContacts.map((contact) =>
-              renderContact(contact, true),
-            )
-          ) : (
-            <p className="py-8 text-center text-sm text-muted">
-              No community contacts yet.
-            </p>
-          )}
-        </div>
-      </section>
+      <div className="space-y-8">
+        {renderDateSection("My Contacts", ownContacts)}
+        {renderDateSection("Community Contacts", visibleCommunityContacts, true)}
+      </div>
     </section>
       {showForm && (
         <section className="page-view-fade mx-auto max-w-5xl pb-6">

@@ -174,7 +174,7 @@ const DashboardResultsPage: React.FC<{
 
 export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStudent = false }) => {
   const { myContacts, loading: contactsLoading, error: contactsError } = useContacts();
-  const [activeView, setActiveView] = useState<FriendsView>('team_friends');
+  const [activeView, setActiveView] = useState<FriendsView>('my_friends');
   const [people, setPeople] = useState<LinkedTeamFriend[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState<TeamFriendFilter | ''>('');
