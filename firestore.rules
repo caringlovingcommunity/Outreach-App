@@ -137,7 +137,7 @@ service cloud.firestore {
       allow create, update: if isOrganizer() &&
         request.resource.data.eventId is string &&
         request.resource.data.slotId is string &&
-        (request.resource.data.createdByUid == request.auth.uid || isAdmin()) &&
+        request.resource.data.createdByUid is string &&
         request.resource.data.groups is list;
       allow delete: if isOrganizer() &&
         (resource.data.createdByUid == request.auth.uid || isAdmin());
@@ -229,7 +229,7 @@ service cloud.firestore {
         request.resource.data.createdAt == resource.data.createdAt &&
         validContact(request.resource.data);
       allow delete: if isMember() &&
-        (isOwner(resource.data.createdById) || isOrganizer());
+        (isOwner(resource.data.createdById) || isAdmin());
     }
   }
 }

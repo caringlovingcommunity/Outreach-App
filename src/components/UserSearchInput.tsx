@@ -95,7 +95,7 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
   return (
     <div className="relative" ref={dropdownRef}>
       <label className="app-label">
-        Select student or organizer to disciple
+        Who invited you?
       </label>
 
       {selectedUserId ? (

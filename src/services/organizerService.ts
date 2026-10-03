@@ -152,6 +152,10 @@ export const updateUserRole = async (memberUid: string, role: 'student' | 'organ
   await updateDoc(doc(db, 'users_public', memberUid), { role });
 };
 
+export const updatePendingApprovalBypass = async (memberUid: string, enabled: boolean): Promise<void> => {
+  await updateDoc(doc(db, 'users_public', memberUid), { pendingApprovalBypass: enabled });
+};
+
 export const deleteUserProfiles = async (userId: string): Promise<void> => {
   await Promise.all([
     deleteDoc(doc(db, 'users_public', userId)),
@@ -182,6 +186,22 @@ export const getAllStudents = async (): Promise<PublicUserProfile[]> => {
   } catch (error) {
     console.error('Error fetching students list:', error);
     throw new Error('Failed to load student directory.');
+  }
+};
+
+export const getAllUsers = async (): Promise<PublicUserProfile[]> => {
+  try {
+    const q = query(
+      collection(db, 'users_public'),
+      orderBy('displayName', 'asc'),
+      limit(250)
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => docSnap.data() as PublicUserProfile);
+  } catch (error) {
+    console.error('Error fetching user directory:', error);
+    throw new Error('Failed to load user directory.');
   }
 };
 

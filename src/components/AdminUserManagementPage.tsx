@@ -1,7 +1,7 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { deleteUserProfiles, getAllApprovedUsers, getUserFullDetail, updateUserRole } from '../services/organizerService';
+import { deleteUserProfiles, getAllUsers, getUserFullDetail, updatePendingApprovalBypass, updateUserRole } from '../services/organizerService';
 import type { UserProfile } from '../types';
 import type { PublicUserProfile } from '../types/user';
 
@@ -17,7 +17,7 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
 
   useEffect(() => {
     if (user.role !== 'admin') return;
-    getAllApprovedUsers()
+    getAllUsers()
       .then(async (profiles) => {
         const hydratedProfiles = await Promise.all(profiles.map(async (profile) => {
           const fullDetail = await getUserFullDetail(profile.uid);
@@ -28,7 +28,7 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
         }));
         setUsers(hydratedProfiles);
       })
-      .catch(() => setError('Unable to load approved users.'))
+      .catch(() => setError('Unable to load users.'))
       .finally(() => setLoading(false));
   }, [user.role]);
 
@@ -42,6 +42,15 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
       setUsers((current) => current.map((member) => member.uid === uid ? { ...member, role } : member));
     } catch {
       setError('Unable to update this user role.');
+    }
+  };
+
+  const togglePendingApprovalBypass = async (uid: string, enabled: boolean) => {
+    try {
+      await updatePendingApprovalBypass(uid, enabled);
+      setUsers((current) => current.map((member) => member.uid === uid ? { ...member, pendingApprovalBypass: enabled } : member));
+    } catch {
+      setError('Unable to update pending approval bypass.');
     }
   };
 
@@ -101,17 +110,26 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
                 <p className="text-sm capitalize text-muted">{member.role}</p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select className="app-input min-h-9 w-auto py-1 text-xs" value={member.role} onChange={(event) => void changeRole(member.uid, event.target.value as typeof member.role)} disabled={member.uid === user.uid}>
                   <option value="student">Student</option>
                   <option value="organizer">Organizer</option>
                   <option value="admin">Admin</option>
                 </select>
+                <label className="flex items-center gap-2 rounded-app-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={member.pendingApprovalBypass === true}
+                    onChange={(event) => void togglePendingApprovalBypass(member.uid, event.target.checked)}
+                    disabled={member.uid === user.uid || member.role === 'organizer' || member.role === 'admin'}
+                  />
+                  Allow bypass
+                </label>
                 <button type="button" className="app-button-secondary text-error" onClick={() => void deleteProfile(member)} disabled={member.uid === user.uid}>Delete Profile</button>
               </div>
             </div>
           ))}
-          {visibleUsers.length === 0 && <p className="p-6 text-sm text-muted">No approved users found.</p>}
+          {visibleUsers.length === 0 && <p className="p-6 text-sm text-muted">No users found.</p>}
         </div>
       )}
     </section>

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { ClipboardCheck, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
+import { ClipboardCheck, Handshake, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
@@ -13,19 +13,21 @@ const ProfilePage = lazy(() => import('./ProfilePage').then((module) => ({ defau
 const OrganizerStudentList = lazy(() => import('./OrganizerStudentList').then((module) => ({ default: module.OrganizerStudentList })));
 const FriendsPage = lazy(() => import('./FriendsPage').then((module) => ({ default: module.FriendsPage })));
 const OrganizerApprovalsPage = lazy(() => import('./OrganizerApprovalsPage').then((module) => ({ default: module.OrganizerApprovalsPage })));
+const PairingHelperPage = lazy(() => import('./PairingHelperPage').then((module) => ({ default: module.PairingHelperPage })));
 
 interface OrganizerDashboardProps {
   user: UserProfile;
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'home' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'profile' | 'user_management';
+type OrganizerTab = 'home' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'pairing_helper' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'events', label: 'Events', icon: PartyPopper },
+  { id: 'events', label: 'Outreach Events', icon: PartyPopper },
   { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
+  { id: 'pairing_helper', label: 'Pairing Helper', icon: Handshake },
 ];
 
 const ADMIN_TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -142,6 +144,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
               <OrganizerApprovalsPage />
             ) : activeTab === 'events' ? (
               <OrganizerEvents user={user} />
+            ) : activeTab === 'pairing_helper' ? (
+              <PairingHelperPage />
             ) : (
               <HomePage displayName={user.displayName} activeSemesterName={activeSemester?.name} />
             )}

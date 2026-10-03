@@ -55,6 +55,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         displayName: profile.displayName,
         photoURL: profile.photoURL || '',
         role: profile.role,
+        visionCastingAccepted: profile.visionCastingAccepted === true,
+        pendingApprovalBypass: profile.pendingApprovalBypass === true,
+        membershipStatus: profile.membershipStatus,
         createdAt: profile.createdAt,
       } : previous);
     }
@@ -83,8 +86,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               displayName: legacyData.displayName || firebaseUser.displayName || 'User',
               photoURL: legacyData.photoURL || firebaseUser.photoURL || '',
               role: role as UserRole,
-              visionCastingAccepted: role === 'organizer',
-              membershipStatus: role === 'organizer' ? 'APPROVED' : 'PENDING',
+              visionCastingAccepted: true,
+              pendingApprovalBypass: true,
+              membershipStatus: 'APPROVED',
               createdAt: serverTimestamp(),
             };
             const newPrivateProfile = {
@@ -105,6 +109,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               displayName: publicProfile.displayName,
               photoURL: publicProfile.photoURL || '',
               role: publicProfile.role,
+              visionCastingAccepted: publicProfile.visionCastingAccepted === true,
+              pendingApprovalBypass: publicProfile.pendingApprovalBypass === true,
+              membershipStatus: publicProfile.membershipStatus,
               createdAt: publicProfile.createdAt,
             });
           } else {
@@ -118,6 +125,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               photoURL: publicProfile.photoURL ?? (firebaseUser.photoURL || ''),
               role: (publicProfile.role as UserRole) || 'student',
               visionCastingAccepted: publicProfile.visionCastingAccepted === true,
+              pendingApprovalBypass: publicProfile.pendingApprovalBypass === true,
               membershipStatus: publicProfile.membershipStatus || 'PENDING',
               createdAt: publicProfile.createdAt,
             };
@@ -145,6 +153,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 photoURL: profile.photoURL || '',
                 role: profile.role || 'student',
                 visionCastingAccepted: profile.visionCastingAccepted === true,
+                pendingApprovalBypass: profile.pendingApprovalBypass === true,
                 membershipStatus: profile.membershipStatus,
                 approvedByUid: profile.approvedByUid,
                 approvedByEmail: profile.approvedByEmail,

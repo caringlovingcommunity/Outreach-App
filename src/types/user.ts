@@ -24,6 +24,7 @@ export interface PublicUserProfile {
   yearOfStudy?: 1 | 2 | 3 | 4 | 5;
   role: 'student' | 'organizer' | 'admin';
   visionCastingAccepted?: boolean;
+  pendingApprovalBypass?: boolean;
   membershipStatus?: MembershipStatus;
   approvedByUid?: string;
   approvedByEmail?: string;

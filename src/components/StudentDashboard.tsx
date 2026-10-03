@@ -20,7 +20,7 @@ type StudentTab = 'home' | 'events' | 'friends' | 'profile';
 
 const TABS: { id: StudentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'events', label: 'Events', icon: CalendarDays },
+  { id: 'events', label: 'Outreach Events', icon: CalendarDays },
   { id: 'friends', label: 'Friends', icon: Users },
 ];
 

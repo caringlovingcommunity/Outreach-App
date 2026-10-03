@@ -36,23 +36,35 @@ export const HomePage: React.FC<HomePageProps> = ({
   const strategyTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const track = strategyTrackRef.current;
-    if (!track) return;
+    if (activeView !== 'info') return;
+    const frame = window.requestAnimationFrame(() => {
+      const track = strategyTrackRef.current;
+      const activeIndex = strategyKeys.indexOf(activeStrategy);
+      if (!track || activeIndex < 0) {
+        setActiveStrategy('win');
+        return;
+      }
+      track.scrollTo({ left: track.clientWidth * activeIndex, behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeView]);
 
-    const handleScroll = () => {
-      const slideWidth = track.clientWidth;
-      if (!slideWidth) return;
-      const nextIndex = Math.min(strategyKeys.length - 1, Math.round(track.scrollLeft / slideWidth));
-      setActiveStrategy(strategyKeys[nextIndex]);
-    };
-
-    track.addEventListener('scroll', handleScroll, { passive: true });
-    return () => track.removeEventListener('scroll', handleScroll);
-  }, [strategyKeys.length]);
+  const handleStrategyScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const track = event.currentTarget;
+    const slideWidth = track.clientWidth;
+    if (!slideWidth) return;
+    const nextIndex = Math.max(
+      0,
+      Math.min(strategyKeys.length - 1, Math.round(track.scrollLeft / slideWidth)),
+    );
+    setActiveStrategy(strategyKeys[nextIndex]);
+  };
 
   const selectStrategy = (key: StrategyKey) => {
-    setActiveStrategy(key);
-    strategyTrackRef.current?.children[strategyKeys.indexOf(key)].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    const track = strategyTrackRef.current;
+    const activeIndex = strategyKeys.indexOf(key);
+    if (!track || activeIndex < 0) return;
+    track.scrollTo({ left: track.clientWidth * activeIndex, behavior: 'smooth' });
   };
 
   return (
@@ -115,7 +127,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div className="mt-5 grid grid-cols-4 border-b border-border" role="tablist" aria-label="Home strategy stages">
                 {strategyKeys.map((key) => <button key={key} type="button" role="tab" aria-selected={activeStrategy === key} onClick={() => selectStrategy(key)} className={`min-h-11 border-b-2 px-2 text-xs font-semibold transition-colors ${activeStrategy === key ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'}`}>{strategies[key].label}</button>)}
               </div>
-              <div ref={strategyTrackRef} className="home-strategy-track mt-5" aria-label="Swipe through strategies">
+              <div ref={strategyTrackRef} onScroll={handleStrategyScroll} className="home-strategy-track mt-5 touch-pan-x" aria-label="Swipe through strategies">
                 {strategyKeys.map((key, index) => {
                   const strategy = strategies[key];
                   return <article key={key} className="home-strategy-panel grid gap-5 sm:grid-cols-[10rem_1fr] sm:items-start" role="tabpanel" aria-label={`${strategy.label}, stage ${index + 1}`}>
@@ -134,7 +146,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <h2 className="mt-3 text-2xl font-bold text-text">Prayer</h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-muted">Prayer is not just our strategy, it is our posture. We believe only God can change people's heart, only God can cause people to grow, and all of these are for His glory. We are reminded to always be in a posture of prayer to pray for our campus.</p>
               <img src="/Prayer.JPG" alt="Prayer is our posture" className="mx-auto mt-5 h-56 w-full max-w-2xl rounded-lg object-cover" />
-              <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-primary"><span className="rounded border border-border px-3 py-2">Prayer walks</span><span className="rounded border border-border px-3 py-2">Outreach together</span><span className="rounded border border-border px-3 py-2">Campus fellowship</span></div>
+              {/* <div className="mt-5 flex flex-wrap justify-center gap-2 text-xs font-semibold text-primary"><span className="rounded border border-border px-3 py-2">Prayer walks</span><span className="rounded border border-border px-3 py-2">Outreach together</span><span className="rounded border border-border px-3 py-2">Campus fellowship</span></div> */}
             </section>
 
             {/* <section className="home-info-section border-t border-border pt-8">

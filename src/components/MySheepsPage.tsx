@@ -1,17 +1,12 @@
-import React, { useRef, useState } from "react";
-import { Edit3, Link2, Plus, Trash2, Unlink } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Edit3, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useContacts } from "../hooks/useContacts";
 import {
   createContact,
   deleteContact,
-  getLinkedAccountProfile,
-  linkContactToUser,
-  unlinkContactFromUser,
   updateContact,
 } from "../services/contactsService";
-import { UserSearchInput } from "./UserSearchInput";
-import type { ContactAccountMatch } from "../services/contactsService";
 import type {
   Contact,
   ContactInput,
@@ -42,7 +37,6 @@ const emptyInput = (): ContactInput => ({
   remarks: "",
 });
 const DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const DISCIPLE_ELIGIBLE_ROLES = ["student", "organizer"] as const;
 const canDeleteContact = (contact: Contact): boolean => {
   if (contact.linkedUserId) return false;
   const createdAt = contact.createdAt;
@@ -56,6 +50,11 @@ const canDeleteContact = (contact: Contact): boolean => {
     Number.isFinite(createdAtMs) && Date.now() - createdAtMs < DELETE_WINDOW_MS
   );
 };
+const canDeleteContactForUser = (
+  contact: Contact,
+  userId: string | undefined,
+  role: string | undefined,
+) => canDeleteContact(contact) && (contact.createdById === userId || role === "admin");
 const responseLabels: Record<ResponseStatus, string> = {
   pray_receive_christ: "Prayed to receive Christ",
   already_christian: "Already Christian",
@@ -75,15 +74,17 @@ const ContactAvatar: React.FC<{ gender: Gender }> = ({ gender }) => (
     />
   </div>
 );
-export const MySheepsPage: React.FC = () => {
+interface MySheepsPageProps {
+  onBack?: () => void;
+  onFormStateChange?: (isOpen: boolean) => void;
+}
+
+export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateChange }) => {
   const { user } = useAuth();
-  const { myContacts, communityContacts, filteredContacts, error, refresh } =
+  const { myContacts, communityContacts, error, refresh } =
     useContacts();
   const visibleCommunityContacts = communityContacts.filter(
     (contact) => contact.createdById !== user?.uid && !contact.linkedUserId,
-  );
-  const myDisciples = myContacts.filter(
-    (contact) => contact.linkedByUid === user?.uid,
   );
   const ownContacts = myContacts.filter(
     (contact) => contact.linkedByUid !== user?.uid,
@@ -95,13 +96,16 @@ export const MySheepsPage: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [accountMatch, setAccountMatch] = useState<ContactAccountMatch | null>(
-    null,
-  );
-  const [linkerAccount, setLinkerAccount] = useState<ContactAccountMatch | null>(null);
-  const [matchLoading, setMatchLoading] = useState(false);
   const [linking, setLinking] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [selectedContact, showForm]);
+
+  useEffect(() => {
+    onFormStateChange?.(showForm || Boolean(selectedContact));
+  }, [onFormStateChange, selectedContact, showForm]);
 
   const openCreate = () => {
     setEditing(null);
@@ -170,64 +174,13 @@ export const MySheepsPage: React.FC = () => {
     setEditing(null);
     setForm(emptyInput());
   };
-  const openDetails = async (contact: Contact) => {
+  const openDetails = (contact: Contact) => {
     setSelectedContact(contact);
-    setAccountMatch(null);
-    setLinkerAccount(null);
-    setMatchLoading(Boolean(contact.linkedByUid));
-    try {
-      if (contact.linkedByUid) {
-        setLinkerAccount(await getLinkedAccountProfile(contact.linkedByUid));
-      }
-    } catch (matchError) {
-      console.error("Failed to find account match:", matchError);
-    } finally {
-      setMatchLoading(false);
-    }
-  };
-  const unlinkSelectedContact = async () => {
-    if (!selectedContact) return;
-    try {
-      setLinking(true);
-      await unlinkContactFromUser(selectedContact.id);
-      setSelectedContact({ ...selectedContact, linkedUserId: undefined });
-      setLinkerAccount(null);
-      setSuccess("Account unlinked successfully.");
-    } catch (unlinkError) {
-      console.error("Failed to unlink account:", unlinkError);
-      setSaveError("Unable to unlink this account.");
-    } finally {
-      setLinking(false);
-    }
-  };
-  const linkSelectedContact = async () => {
-    if (!selectedContact || !accountMatch || !user) return;
-    try {
-      setLinking(true);
-      await linkContactToUser(selectedContact.id, accountMatch.uid, user.uid);
-      setSelectedContact({
-        ...selectedContact,
-        linkedUserId: accountMatch.uid,
-        linkedByUid: user.uid,
-      });
-      setLinkerAccount({
-        uid: user.uid,
-        displayName: user.displayName,
-        photoURL: user.photoURL || "",
-      });
-      setSuccess("Account linked successfully.");
-    } catch (linkError) {
-      console.error("Failed to link account:", linkError);
-      setSaveError("Unable to link this account.");
-    } finally {
-      setLinking(false);
-    }
   };
   const deleteSelectedContact = async () => {
     if (
       !selectedContact ||
-      !canDeleteContact(selectedContact) ||
-      (selectedContact.createdById !== user?.uid && user?.role !== "organizer")
+      !canDeleteContactForUser(selectedContact, user?.uid, user?.role)
     )
       return;
     if (
@@ -246,9 +199,76 @@ export const MySheepsPage: React.FC = () => {
     } finally {
       setLinking(false);
     }
+
   };
+  if (selectedContact) {
+    return (
+      <section className="mx-auto max-w-5xl pb-6">
+        <button type="button" onClick={() => setSelectedContact(null)} className="app-button-text -ml-3 mb-5">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to My Sheeps
+        </button>
+        <div className="border-b border-border pb-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Contact details</p>
+          <h1 className="mt-1 text-2xl font-bold text-text">{selectedContact.name}</h1>
+          <p className="mt-1 text-sm text-muted">{selectedContact.phoneNumber || "No phone number recorded"}</p>
+        </div>
+        <div className="grid gap-4 border-b border-border py-5 text-sm text-text sm:grid-cols-2">
+          <p><span className="font-semibold">Gender:</span> {selectedContact.gender === "female" ? "Female" : "Male"}</p>
+          <p><span className="font-semibold">Gospel progress:</span> {selectedContact.gospelStatus.replaceAll("_", " ")}</p>
+          <p><span className="font-semibold">Responses:</span> {selectedContact.responseStatuses.length ? selectedContact.responseStatuses.map((response) => responseLabels[response]).join(", ") : "None recorded"}</p>
+          <p><span className="font-semibold">Created by:</span> {selectedContact.createdByName}</p>
+          {/* <p><span className="font-semibold">Account status:</span> {selectedContact.linkedUserId ? "Linked to a CLC account" : "Not linked"}</p> */}
+        </div>
+        {selectedContact.remarks && (
+          <div className="border-b border-border py-5 text-sm text-text">
+            <p className="font-semibold">Remarks</p>
+            <p className="mt-1 whitespace-pre-wrap text-muted">{selectedContact.remarks}</p>
+          </div>
+        )}
+        {/* <div className="mt-5 border-b border-border pb-5">
+          <h2 className="font-semibold text-text">Account Match</h2>
+          {matchLoading ? (
+            <p className="mt-2 text-sm text-muted">Checking for an exact registered account match...</p>
+          ) : selectedContact.linkedUserId ? (
+            <div className="mt-3 rounded-app-md border border-primary-muted bg-primary-soft p-3">
+              <p className="text-sm font-semibold text-text">Disciple Under: {linkerAccount?.displayName || "the linking user"}</p>
+              {(selectedContact.linkedByUid === user?.uid || user?.role === "organizer") && (
+                <button type="button" disabled={linking} onClick={() => void unlinkSelectedContact()} className="app-button-secondary mt-3">
+                  <Unlink className="h-4 w-4" />
+                  {linking ? "Unlinking..." : "Unlink Disciple"}
+                </button>
+              )}
+            </div>
+          ) : accountMatch ? (
+            <div className="mt-3 rounded-app-md border border-primary-muted bg-primary-soft p-3">
+              <p className="text-sm font-semibold text-text">Selected student: {accountMatch.displayName}</p>
+              <button type="button" disabled={linking || (selectedContact.createdById !== user?.uid && user?.role !== "organizer")} onClick={() => void linkSelectedContact()} className="app-button-primary mt-3">
+                <Link2 className="h-4 w-4" />
+                {linking ? "Linking..." : `Disciple ${selectedContact.gender === "female" ? "her" : "him"}`}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <UserSearchInput
+                currentUserId={user?.uid || ""}
+                onSelectUser={(selected) => setAccountMatch(selected ? { ...selected, photoURL: "" } : null)}
+                eligibleRoles={DISCIPLE_ELIGIBLE_ROLES as unknown as ("student" | "organizer")[]}
+              />
+            </div>
+          )}
+        </div> */}
+        {canDeleteContactForUser(selectedContact, user?.uid, user?.role) && (
+          <button type="button" disabled={linking} onClick={() => void deleteSelectedContact()} className="app-button-secondary mt-5 w-full text-danger">
+            <Trash2 className="h-4 w-4" />
+            {linking ? "Deleting..." : "Delete Contact"}
+          </button>
+        )}
+      </section>
+    );
+  }
   const deleteEditingContact = async () => {
-    if (!editing || !canDeleteContact(editing)) return;
+    if (!editing || !canDeleteContactForUser(editing, user?.uid, user?.role)) return;
     if (!window.confirm(`Delete ${editing.name}? This cannot be undone.`))
       return;
     try {
@@ -328,7 +348,14 @@ export const MySheepsPage: React.FC = () => {
   );
 
   return (
-    <section className="space-y-6">
+    <>
+    <section className={`space-y-6 ${showForm ? "hidden" : ""}`}>
+      {onBack && (
+        <button type="button" onClick={onBack} className="app-button-text -ml-3">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to Friends
+        </button>
+      )}
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-primary mt-3">
@@ -336,7 +363,7 @@ export const MySheepsPage: React.FC = () => {
           </p>
           <h2 className="mt-1 text-2xl font-bold text-text">My Sheeps</h2>
           <p className="mt-1 text-sm text-muted">
-            Keep track of the people you met and the next faithful step.
+            Keep track of the people you met and key in the next faithful step.
           </p>
         </div>
         <button
@@ -353,7 +380,7 @@ export const MySheepsPage: React.FC = () => {
       {(error || saveError) && (
         <div className="app-alert-error">{error || saveError}</div>
       )}
-      <section>
+      {/* <section>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-text">My Disciples</h3>
           <span className="text-xs text-muted">{myDisciples.length}</span>
@@ -367,7 +394,7 @@ export const MySheepsPage: React.FC = () => {
             </p>
           )}
         </div>
-      </section>
+      </section> */}
       <section>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-text">My Contacts</h3>
@@ -383,7 +410,7 @@ export const MySheepsPage: React.FC = () => {
           )}
         </div>
       </section>
-      <section>
+      {/* <section>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-text">Filtered</h3>
           <span className="text-xs text-muted">{filteredContacts.length}</span>
@@ -397,7 +424,7 @@ export const MySheepsPage: React.FC = () => {
             </p>
           )}
         </div>
-      </section>
+      </section> */}
       <section>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-text">
@@ -419,26 +446,31 @@ export const MySheepsPage: React.FC = () => {
           )}
         </div>
       </section>
+    </section>
       {showForm && (
-        <div className="app-modal-backdrop items-end justify-center sm:items-center">
+        <section className="page-view-fade mx-auto max-w-5xl pb-6">
+          <button type="button" onClick={closeForm} className="app-button-text -ml-3 mb-5">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to My Sheeps
+          </button>
           <form
-            className="app-modal max-h-[90vh] overflow-y-auto"
+            className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
               void save(false);
             }}
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-text">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <h1 className="text-2xl font-bold text-text">
                 {editing ? "Edit Contact" : "New Contact"}
-              </h3>
-              <button
+              </h1>
+              {/* <button
                 type="button"
                 onClick={closeForm}
                 className="app-icon-button size-9"
               >
                 &times;
-              </button>
+              </button> */}
             </div>
             <label className="mt-4 block">
               <span className="app-label">Name</span>
@@ -562,7 +594,7 @@ export const MySheepsPage: React.FC = () => {
               >
                 Cancel
               </button>
-              {editing && canDeleteContact(editing) && (
+              {editing && canDeleteContactForUser(editing, user?.uid, user?.role) && (
                 <button
                   type="button"
                   disabled={saving}
@@ -592,108 +624,8 @@ export const MySheepsPage: React.FC = () => {
               </button>
             </div>
           </form>
-        </div>
+        </section>
       )}
-      {selectedContact && (
-        <div className="app-modal-backdrop items-center justify-center">
-          <section className="app-modal min-w-0 max-h-[calc(100vh-2rem)] max-w-xl overflow-visible">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                  Contact details
-                </p>
-                <h3 className="mt-1 text-xl font-bold text-text">
-                  {selectedContact.name}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {selectedContact.phoneNumber || "No phone number recorded"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedContact(null)}
-                className="app-icon-button size-9"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="mt-5 border-t border-border pt-4">
-              <h4 className="font-semibold text-text">Account Match</h4>
-              {matchLoading ? (
-                <p className="mt-2 text-sm text-muted">
-                  Checking for an exact registered account match...
-                </p>
-              ) : selectedContact.linkedUserId ? (
-                <div className="mt-3 rounded-app-md border border-primary-muted bg-primary-soft p-3">
-                  <p className="text-sm font-semibold text-text">
-                    Disciple Under: {linkerAccount?.displayName || "the linking user"}
-                  </p>
-                  {(selectedContact.linkedByUid === user?.uid ||
-                    user?.role === "organizer") && (
-                    <button
-                      type="button"
-                      disabled={linking}
-                      onClick={() => void unlinkSelectedContact()}
-                      className="app-button-secondary mt-3"
-                    >
-                      <Unlink className="h-4 w-4" />
-                      {linking ? "Unlinking..." : "Unlink Disciple"}
-                    </button>
-                  )}
-                </div>
-              ) : accountMatch ? (
-                <div className="mt-3 rounded-app-md border border-primary-muted bg-primary-soft p-3">
-                  <p className="text-sm font-semibold text-text">
-                    Selected student: {accountMatch.displayName}
-                  </p>
-                  <button
-                    type="button"
-                    disabled={
-                      linking ||
-                      (selectedContact.createdById !== user?.uid &&
-                        user?.role !== "organizer")
-                    }
-                    onClick={() => void linkSelectedContact()}
-                    className="app-button-primary mt-3"
-                  >
-                    <Link2 className="h-4 w-4" />
-                      {linking
-                        ? "Linking..."
-                        : `Disciple ${selectedContact.gender === "female" ? "her" : "him"}`}
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-3">
-                  <UserSearchInput
-                    currentUserId={user?.uid || ""}
-                    onSelectUser={(selected) =>
-                      setAccountMatch(
-                        selected
-                          ? { ...selected, photoURL: "" }
-                          : null,
-                      )
-                    }
-                    eligibleRoles={DISCIPLE_ELIGIBLE_ROLES as unknown as ("student" | "organizer")[]}
-                  />
-                </div>
-              )}
-            </div>
-            {canDeleteContact(selectedContact) &&
-              (selectedContact.createdById === user?.uid ||
-              user?.role === "organizer") && (
-              <button
-                type="button"
-                disabled={linking}
-                onClick={() => void deleteSelectedContact()}
-                className="app-button-secondary mt-5 w-full text-danger"
-              >
-                <Trash2 className="h-4 w-4" />
-                {linking ? "Deleting..." : "Delete Contact"}
-              </button>
-            )}
-          </section>
-        </div>
-      )}
-    </section>
+    </>
   );
 };

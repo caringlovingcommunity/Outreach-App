@@ -128,7 +128,7 @@ export const EventParticipation: React.FC<Props> = ({ user, heading = true, show
       {heading && (
         <>
           <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
-            <p className="text-2xl font-bold sm:text-3xl">Events</p>
+            <p className="text-2xl font-bold sm:text-3xl">Outreach Events</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
               View outreach event details and choose the slots you can attend.
             </p>

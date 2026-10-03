@@ -197,6 +197,8 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
     setPairingSlot({ eventId: event.id, eventCreatorUid: event.createdByUid || user.uid, label: `${formatEventDate(date.date)} • ${label}`, slotId: normalizedSlotId, participants: [] });
   };
 
+  const canManageEvent = (event: EventRecord) => user.role === 'admin' || event.createdByUid === user.uid;
+
   return (
     <section className="mx-auto max-w-5xl pb-6">
       <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
@@ -345,19 +347,23 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
                 <button type="button" onClick={() => setViewingEvent(event)} className="app-button-text min-h-9 px-3 py-1.5 text-xs">Manage pairing details</button>
-                <button type="button" onClick={() => startEdit(event)} className="app-button-text min-h-9 px-3 py-1.5 text-xs">
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteEvent(event.id)}
-                  disabled={deletingId === event.id}
-                  className="app-button-text min-h-9 px-3 py-1.5 text-xs text-error hover:bg-error-soft hover:text-error"
-                >
-                  {deletingId === event.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                  Delete
-                </button>
+                {canManageEvent(event) && (
+                  <>
+                    <button type="button" onClick={() => startEdit(event)} className="app-button-text min-h-9 px-3 py-1.5 text-xs">
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteEvent(event.id)}
+                      disabled={deletingId === event.id}
+                      className="app-button-text min-h-9 px-3 py-1.5 text-xs text-error hover:bg-error-soft hover:text-error"
+                    >
+                      {deletingId === event.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           ))}
@@ -389,7 +395,7 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
                     <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                     <div className="flex flex-wrap gap-1.5">
                       {entry.timeSlots.length ? (
-                        (user.role === 'admin' || viewingEvent.createdByUid === user.uid) ? entry.timeSlots.map((label) => (
+                        user.role === 'organizer' || user.role === 'admin' ? entry.timeSlots.map((label) => (
                           <button key={label} type="button" onClick={() => void openPairing(viewingEvent, entry, label)} className="app-button-text min-h-8 px-2 py-1 text-xs">
                             Manage {label}
                           </button>
@@ -402,14 +408,18 @@ export const OrganizerEvents: React.FC<Props> = ({ user }) => {
             </div>
 
             <div className="flex justify-end gap-2 border-t border-border pt-3">
-              <button type="button" onClick={() => deleteEvent(viewingEvent.id)} className="app-button-text min-h-9 px-3 py-1.5 text-xs text-error hover:bg-error-soft hover:text-error">
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </button>
-              <button type="button" onClick={() => startEdit(viewingEvent)} className="app-button-primary min-h-9 px-3 py-1.5 text-xs">
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
-              </button>
+              {canManageEvent(viewingEvent) && (
+                <>
+                  <button type="button" onClick={() => deleteEvent(viewingEvent.id)} className="app-button-text min-h-9 px-3 py-1.5 text-xs text-error hover:bg-error-soft hover:text-error">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                  <button type="button" onClick={() => startEdit(viewingEvent)} className="app-button-primary min-h-9 px-3 py-1.5 text-xs">
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

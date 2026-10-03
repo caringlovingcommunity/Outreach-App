@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock3, Link2, MoreVertical, Search, Users } from 'lucide-react';
+import { ArrowLeft, Clock3, Search, Users } from 'lucide-react';
 import { getDisciplerForStudent } from '../services/contactsService';
 import { subscribeToTeamFriendsWithContacts } from '../services/friendsService';
 import type { LinkedTeamFriend } from '../services/friendsService';
@@ -25,10 +25,6 @@ const viewLabels: Record<FriendsView, string> = {
 
 const formatLabel = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 const shortenLabel = (value: string, maxLength = 32) => value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
-const formatDateTime = (value: any) => {
-  const date = typeof value?.toDate === 'function' ? value.toDate() : value instanceof Date ? value : value ? new Date(value) : null;
-  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : 'Unknown';
-};
 
 const statusLabels = {
   not_started: 'Not started',
@@ -88,8 +84,96 @@ const OutreachContactDetails: React.FC<{ contact: Contact }> = ({ contact }) => 
   );
 };
 
+const FriendDetailsPage: React.FC<{ person: LinkedTeamFriend; onBack: () => void }> = ({ person, onBack }) => (
+  <section className="mx-auto max-w-5xl pb-6">
+    <button type="button" onClick={onBack} className="app-button-text -ml-3 mb-5">
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      Back to Friends
+    </button>
+    <div className="border-b border-border pb-5">
+      <div className="flex items-center gap-3">
+        {person.photoURL ? (
+          <img src={person.photoURL} alt="" className="h-14 w-14 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-xl font-bold text-primary">
+            {person.displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <h1 className="text-2xl font-bold text-text">{person.displayName}</h1>
+          <p className="text-sm text-muted">{person.course || 'CLC Outreach member'}</p>
+          {person.isFiltered && <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Filtered user</span>}
+        </div>
+      </div>
+    </div>
+    <div className="mt-5 grid gap-3 border-b border-border pb-5 text-sm text-text sm:grid-cols-2">
+      <p><span className="font-semibold">Faculty:</span> {person.faculty || 'Not provided'}</p>
+      <p><span className="font-semibold">Course:</span> {person.course || 'Not provided'}</p>
+      <p><span className="font-semibold">Year:</span> {person.yearOfStudy ? `Year ${person.yearOfStudy}` : 'Not provided'}</p>
+      {/* <p><span className="font-semibold">College:</span> {person.college || 'Not provided'}</p> */}
+      {/* <p><span className="font-semibold">Role:</span> {person.role}</p>
+      <p><span className="font-semibold">Membership:</span> {person.membershipStatus || 'Not provided'}</p>
+      <p><span className="font-semibold">Invited by:</span> {person.invitedByName || 'Not provided'}</p>
+      <p><span className="font-semibold">Linked by:</span> {person.linkedByNames.length ? person.linkedByNames.join(', ') : 'No linked contacts'}</p> */}
+    </div>
+    {/* <h2 className="mt-7 text-lg font-bold text-text">Outreach contacts</h2>
+    <div className="mt-3 space-y-4">
+      {person.linkedContacts.length > 0 ? person.linkedContacts.map((contact) => (
+        <OutreachContactDetails key={contact.id} contact={contact} />
+      )) : <p className="text-sm text-muted">No outreach contacts linked.</p>}
+    </div> */}
+  </section>
+);
+
+const DashboardResultsPage: React.FC<{
+  label: string;
+  contacts: Contact[];
+  people: LinkedTeamFriend[];
+  onBack: () => void;
+}> = ({ label, contacts, people, onBack }) => (
+  <section className="mx-auto max-w-5xl pb-6">
+    <button type="button" onClick={onBack} className="app-button-text -ml-3 mb-5">
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      Back to Friends
+    </button>
+    <div className="border-b border-border pb-5">
+      <h1 className="text-2xl font-bold text-text">{label}</h1>
+      <p className="mt-1 text-sm text-muted">{contacts.length} contact{contacts.length === 1 ? '' : 's'}</p>
+    </div>
+    {contacts.length > 0 ? (
+      <div className="mt-5 space-y-4">
+        {contacts.map((contact) => {
+          const person = people.find((entry) => entry.uid === contact.linkedUserId);
+          return person ? (
+            <article key={contact.id} className="rounded-app-md border border-primary-muted bg-primary-soft p-4 shadow-app-sm">
+              <div className="flex items-start gap-3">
+                {person.photoURL ? (
+                  <img src={person.photoURL} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white font-bold text-primary">
+                    {person.displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h2 className="truncate font-semibold text-text">{person.displayName}</h2>
+                  <p className="truncate text-sm text-muted">{person.course || 'CLC Outreach member'}</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <OutreachContactDetails contact={contact} />
+              </div>
+            </article>
+          ) : <OutreachContactDetails key={contact.id} contact={contact} />;
+        })}
+      </div>
+    ) : (
+      <p className="mt-6 text-sm text-muted">No contacts match this metric.</p>
+    )}
+  </section>
+);
+
 export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStudent = false }) => {
-  const { myContacts, communityContacts, loading: contactsLoading, error: contactsError } = useContacts();
+  const { myContacts, loading: contactsLoading, error: contactsError } = useContacts();
   const [activeView, setActiveView] = useState<FriendsView>('team_friends');
   const [people, setPeople] = useState<LinkedTeamFriend[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,11 +185,11 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
   const [dashboardFilter, setDashboardFilter] = useState<DashboardFilter | null>(null);
   const [dashboardFilterValue, setDashboardFilterValue] = useState<string | null>(null);
   const [discipler, setDiscipler] = useState<{ displayName: string; photoURL: string } | null>(null);
-  const [disciplerLoading, setDisciplerLoading] = useState(true);
+  const [isContactFormOpen, setIsContactFormOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeView]);
+  }, [activeView, dashboardFilter, selectedPerson]);
 
   useEffect(() => {
     setLoading(true);
@@ -131,9 +215,6 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
     getDisciplerForStudent(currentUserId)
       .then((profile) => {
         if (isMounted) setDiscipler(profile);
-      })
-      .finally(() => {
-        if (isMounted) setDisciplerLoading(false);
       });
 
     return () => {
@@ -204,10 +285,8 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
   }, [filteredPeople, filterBy]);
 
   const dashboardContactsForUser = useMemo(
-    () => isStudent
-      ? myContacts
-      : communityContacts.filter((contact) => contact.linkedByUid === currentUserId),
-    [communityContacts, currentUserId, isStudent, myContacts],
+    () => myContacts,
+    [myContacts],
   );
   const dashboardMetrics = useMemo(() => getFriendsDashboardMetrics(dashboardContactsForUser), [dashboardContactsForUser]);
 
@@ -236,36 +315,53 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
             : dashboardFilter === 'journey_completed' ? 'Journey of Faith completed'
               : dashboardFilterValue ? statusLabels[dashboardFilterValue as keyof typeof statusLabels] : 'Filtered contacts';
 
-  const dashboardPersonForContact = (contact: Contact) => people.find((person) => person.uid === contact.linkedUserId);
+  if (selectedPerson) {
+    return <FriendDetailsPage person={selectedPerson} onBack={() => setSelectedPerson(null)} />;
+  }
+
+  if (dashboardFilter) {
+    return (
+      <DashboardResultsPage
+        label={dashboardFilterLabel}
+        contacts={dashboardContacts}
+        people={people}
+        onBack={() => setDashboardFilter(null)}
+      />
+    );
+  }
 
   return (
     <section className="mx-auto max-w-5xl pb-6">
-      <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
-        <p className="text-2xl font-bold sm:text-3xl">Friends</p>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
-          Step out in faith to make new friends, and remain organized and intentional in your connections.
-        </p>
-      </div>
+      {!isContactFormOpen && (
+        <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
+          <p className="text-2xl font-bold sm:text-3xl">Friends</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
+            Step out in faith to make new friends, and remain organized and intentional in your connections.
+          </p>
+        </div>
+      )}
 
-      <div className="mt-4 grid grid-cols-3 border-b border-border" role="tablist" aria-label="Friends views">
-        {(Object.keys(viewLabels) as FriendsView[]).map((view) => (
-          <button
-            key={view}
-            type="button"
-            role="tab"
-            aria-selected={activeView === view}
-            onClick={() => setActiveView(view)}
-            className={`min-h-12 border-b-2 px-2 text-xs font-semibold transition-colors sm:text-sm ${
-              activeView === view ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'
-            }`}
-          >
-            {viewLabels[view]}
-          </button>
-        ))}
-      </div>
+      {!isContactFormOpen && (
+        <div className="sticky top-[104px] z-[5] mt-4 grid grid-cols-3 border-b border-border bg-background sm:top-[138px]" role="tablist" aria-label="Friends views">
+          {(Object.keys(viewLabels) as FriendsView[]).map((view) => (
+            <button
+              key={view}
+              type="button"
+              role="tab"
+              aria-selected={activeView === view}
+              onClick={() => setActiveView(view)}
+              className={`min-h-12 border-b-2 px-2 text-xs font-semibold transition-colors sm:text-sm ${
+                activeView === view ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'
+              }`}
+            >
+              {viewLabels[view]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {activeView === 'my_friends' ? (
-        <MySheepsPage />
+        <MySheepsPage onFormStateChange={setIsContactFormOpen} />
       ) : activeView === 'team_friends' ? (
         <>
           <label className="relative mt-5 block">
@@ -280,11 +376,9 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
             />
           </label>
 
-          <section className="mt-5 border-b border-border pb-4">
-            <h2 className="text-lg font-bold text-text">Your Discipler</h2>
-            {disciplerLoading ? (
-              <p className="mt-2 text-sm text-muted">Loading discipler...</p>
-            ) : discipler ? (
+          {discipler && (
+            <section className="mt-5 border-b border-border pb-4">
+              <h2 className="text-lg font-bold text-text">Your Discipler</h2>
               <div className="mt-3 flex items-center gap-3">
                 {discipler.photoURL ? (
                   <img src={discipler.photoURL} alt="" className="h-11 w-11 rounded-full object-cover" />
@@ -295,10 +389,8 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
                 )}
                 <p className="font-semibold text-text">{discipler.displayName}</p>
               </div>
-            ) : (
-              <p className="mt-2 text-sm text-muted">No discipler has been assigned yet.</p>
-            )}
-          </section>
+            </section>
+          )}
           {!isStudent && <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label>
               <span className="sr-only">Filter friends by</span>
@@ -352,7 +444,13 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
                   <h2 id={`friends-group-${group}`} className="text-lg font-bold text-text">{group}</h2>
                   <div className="mt-2 divide-y divide-border border-y border-border">
                     {members.map((person) => (
-                      <article key={person.uid} className="flex items-center gap-3 py-3">
+                      <button
+                        type="button"
+                        key={person.uid}
+                        onClick={() => setSelectedPerson(person)}
+                        aria-label={`View ${person.displayName} profile`}
+                        className="flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-primary-soft"
+                      >
                         {person.photoURL ? (
                           <img src={person.photoURL} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
                         ) : (
@@ -365,16 +463,7 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
                           <p className="truncate text-sm text-muted">{person.course || 'CLC Outreach member'}</p>
                           {person.linkedContacts.length > 0 && <p className="truncate text-xs font-semibold text-primary">CLC Friends · {person.linkedContacts.map((contact) => contact.name).join(', ')}</p>}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPerson(person)}
-                          aria-label={`View ${person.displayName} profile`}
-                          className="app-icon-button size-9 shrink-0"
-                          title="View profile"
-                        >
-                          <MoreVertical className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                      </article>
+                      </button>
                     ))}
                   </div>
                 </section>
@@ -395,7 +484,7 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
             {[
               { label: 'Outreach contacts', value: dashboardMetrics.totalContacts, icon: Users },
               { label: 'Need follow-up', value: dashboardMetrics.followUpNeeded, icon: Clock3 },
-              { label: 'Disciples', value: dashboardMetrics.linkedContacts, icon: Link2 },
+              // { label: 'Disciples', value: dashboardMetrics.linkedContacts, icon: Link2 },
             ].map(({ label, value, icon: Icon }) => (
               <button type="button" key={label} onClick={() => openDashboardResults(label === 'Outreach contacts' ? 'all' : label === 'Need follow-up' ? 'follow_up' : 'linked')} className="app-panel flex items-center gap-3 p-4 text-left transition-colors hover:border-primary hover:bg-primary-soft">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
@@ -461,114 +550,6 @@ export const FriendsPage: React.FC<FriendsPageProps> = ({ currentUserId, isStude
         </div>
       )}
 
-      {dashboardFilter && (
-        <div className="app-modal-backdrop" role="presentation" onClick={() => setDashboardFilter(null)}>
-          <section
-            className="app-modal max-h-[85vh] overflow-y-auto"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dashboard-results-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Dashboard details</p>
-                <h2 id="dashboard-results-title" className="mt-1 text-lg font-bold text-text">{dashboardFilterLabel}</h2>
-                <p className="mt-1 text-sm text-muted">{dashboardContacts.length} contact{dashboardContacts.length === 1 ? '' : 's'}</p>
-              </div>
-              <button type="button" onClick={() => setDashboardFilter(null)} className="app-icon-button size-9" aria-label="Close dashboard details">&times;</button>
-            </div>
-
-            {dashboardContacts.length > 0 ? (
-              <div className="mt-5 space-y-4">
-                {dashboardContacts.map((contact) => {
-                  const person = dashboardPersonForContact(contact);
-                  return person ? (
-                    <article key={contact.id} className="rounded-app-md border border-primary-muted bg-primary-soft p-4 shadow-app-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          {person.photoURL ? (
-                            <img src={person.photoURL} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
-                          ) : (
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white font-bold text-primary">{person.displayName.charAt(0).toUpperCase()}</div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-primary">CLC Friends</p>
-                            </div>
-                            <h3 className="truncate font-semibold text-text">{person.displayName.replace(/\b\w/g, (character) => character.toUpperCase())}</h3>                             
-                            {person.isFiltered && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">Filtered Member</span>}
-                            <p className="truncate text-sm text-muted">{person.course || 'CLC Outreach member'}</p>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-primary">{formatLabel(contact.gospelStatus)}</span>
-                      </div>
-                      <div className="mt-4 grid gap-3 text-sm text-text sm:grid-cols-2">
-                        <p><span className="font-semibold">Phone:</span> {contact.phoneNumber || 'Not provided'}</p>
-                        <p><span className="font-semibold">Gender:</span> {formatLabel(contact.gender)}</p>
-                        <p><span className="font-semibold">Responses:</span> {contact.responseStatuses.map(formatLabel).join(', ') || 'None recorded'}</p>
-                        <p><span className="font-semibold">Next follow-up:</span> {getNextJourneyStep(contact) ? formatLabel(getNextJourneyStep(contact)!) : 'Journey complete'}</p>
-                      </div>
-                      {contact.remarks && (
-                        <div className="mt-4 border-t border-primary-muted pt-3 text-sm text-text">
-                          <p className="font-semibold">Remarks</p>
-                          <p className="mt-1 text-muted">{contact.remarks}</p>
-                        </div>
-                      )}
-                        <div className="mt-4 border-t border-border pt-3 text-xs text-muted">
-                          <p>Joined: {formatDateTime(person.createdAt)}</p>
-                          <p>Linked: {formatDateTime(contact.linkedAt)}</p>
-                        </div>
-                    </article>
-                  ) : (
-                    <OutreachContactDetails key={contact.id} contact={contact} />
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-6 text-center text-sm text-muted">No contacts match this metric.</p>
-            )}
-            <button type="button" onClick={() => setDashboardFilter(null)} className="app-button-secondary mt-6 w-full">Close</button>
-          </section>
-        </div>
-      )}
-
-      {selectedPerson && (
-        <div className="app-modal-backdrop" role="presentation" onClick={() => setSelectedPerson(null)}>
-          <section
-            className="app-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="friend-profile-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              {selectedPerson.photoURL ? (
-                <img src={selectedPerson.photoURL} alt="" className="h-14 w-14 rounded-full object-cover" />
-              ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-xl font-bold text-primary">
-                  {selectedPerson.displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <h2 id="friend-profile-title" className="text-lg font-bold text-text">{selectedPerson.displayName}</h2>
-                <p className="text-sm text-muted">{selectedPerson.course || 'CLC Outreach member'}</p>
-                {selectedPerson.isFiltered && <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Filtered user</span>}
-              </div>
-            </div>
-            <div className="mt-5 space-y-4">
-              <div className="grid gap-3 text-sm text-text sm:grid-cols-2">
-                {selectedPerson.faculty && <p><span className="font-semibold">Faculty:</span> {selectedPerson.faculty}</p>}
-                {selectedPerson.yearOfStudy && <p><span className="font-semibold">Year:</span> {selectedPerson.yearOfStudy}</p>}
-              </div>
-              {selectedPerson.linkedContacts.length > 0 ? selectedPerson.linkedContacts.map((contact) => (
-                <OutreachContactDetails key={contact.id} contact={contact} />
-              )) : <p className="text-sm text-muted">No outreach contacts linked.</p>}
-            </div>
-            <button type="button" onClick={() => setSelectedPerson(null)} className="app-button-secondary mt-6 w-full">Close</button>
-          </section>
-        </div>
-      )}
     </section>
   );
 };
