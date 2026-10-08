@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Edit3, Plus, Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, Edit3, Plus, Search, Trash2, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useContacts } from "../hooks/useContacts";
+import { UserSearchInput } from "./UserSearchInput";
 import {
   createContact,
   deleteContact,
@@ -27,13 +29,21 @@ const emptyProgress: FollowUpProgress = {
   jof1_7: false,
   jof1_8: false,
 };
+const toDateInputValue = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const getLocalToday = (): string => toDateInputValue(new Date());
+
 const emptyInput = (): ContactInput => ({
   name: "",
+  contactDate: getLocalToday(),
   phoneNumber: "",
   gender: "male",
   gospelStatus: "not_started",
   responseStatuses: [],
   followUpProgress: { ...emptyProgress },
+  outreachPartnerIds: [],
+  outreachPartnerNames: [],
   remarks: "",
 });
 const DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -51,6 +61,19 @@ const DATE_BUCKETS = [
 type ContactDateBucket = typeof DATE_BUCKETS[number];
 
 const getContactDate = (contact: Contact): Date | null => {
+  if (typeof contact.contactDate === "string") {
+    const [year, month, day] = contact.contactDate.split("-").map(Number);
+    const date = new Date(year, month - 1, day, 12);
+    if (
+      Number.isFinite(date.getTime()) &&
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    ) {
+      return date;
+    }
+  }
+
   const createdAt = contact.createdAt;
   const date =
     createdAt instanceof Date
@@ -143,7 +166,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     (contact) => contact.createdById !== user?.uid && !contact.linkedUserId,
   );
   const ownContacts = myContacts.filter(
-    (contact) => contact.linkedByUid !== user?.uid,
+    (contact) => contact.linkedByUid !== user?.uid || Boolean(user?.uid && contact.outreachPartnerIds?.includes(user.uid)),
   );
   const [editing, setEditing] = useState<Contact | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -152,8 +175,28 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   const [saveError, setSaveError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [linking, setLinking] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filterContacts = (contacts: Contact[]) => !normalizedSearch
+    ? contacts
+    : contacts.filter((contact) => {
+      const date = getContactDate(contact);
+      const searchableValues = [
+        contact.name,
+        contact.phoneNumber,
+        contact.createdByName,
+        ...contact.responseStatuses.map((response) => responseLabels[response]),
+        contact.gospelStatus.replaceAll("_", " "),
+        date?.toLocaleDateString("en-GB"),
+        getContactDateBucket(date),
+      ];
+      return searchableValues.some((value) => value?.toLowerCase().includes(normalizedSearch));
+    });
+  const filteredOwnContacts = filterContacts(ownContacts);
+  const filteredCommunityContacts = filterContacts(visibleCommunityContacts);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -171,9 +214,11 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   };
   const openEdit = (contact: Contact) => {
     const isLinkedContact = Boolean(contact.linkedUserId);
+    const isOutreachPartner = Boolean(user?.uid && contact.outreachPartnerIds?.includes(user.uid));
     if (
       isLinkedContact &&
       contact.linkedByUid !== user?.uid &&
+      !isOutreachPartner &&
       !window.confirm("This disciple is not under you, continue to edit?")
     ) {
       return;
@@ -181,11 +226,14 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     setEditing(contact);
     setForm({
       name: contact.name,
+      contactDate: contact.contactDate || toDateInputValue(getContactDate(contact) || new Date()),
       phoneNumber: contact.phoneNumber || "",
       gender: contact.gender,
       gospelStatus: contact.gospelStatus,
       responseStatuses: [...contact.responseStatuses],
       followUpProgress: { ...emptyProgress, ...contact.followUpProgress },
+      outreachPartnerIds: contact.outreachPartnerIds || [],
+      outreachPartnerNames: contact.outreachPartnerNames || [],
       remarks: contact.remarks || "",
     });
     setSaveError(null);
@@ -274,6 +322,9 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
           <p><span className="font-semibold">Gospel progress:</span> {selectedContact.gospelStatus.replaceAll("_", " ")}</p>
           <p><span className="font-semibold">Responses:</span> {selectedContact.responseStatuses.length ? selectedContact.responseStatuses.map((response) => responseLabels[response]).join(", ") : "None recorded"}</p>
           <p><span className="font-semibold">Created by:</span> {selectedContact.createdByName}</p>
+          {selectedContact.outreachPartnerNames?.length ? (
+            <p><span className="font-semibold">Outreach partners:</span> {selectedContact.outreachPartnerNames.join(", ")}</p>
+          ) : null}
           {/* <p><span className="font-semibold">Account status:</span> {selectedContact.linkedUserId ? "Linked to a CLC account" : "Not linked"}</p> */}
         </div>
         {selectedContact.remarks && (
@@ -387,12 +438,18 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
         <p className="mt-1 text-xs font-medium text-text">
           {getContactDate(contact)?.toLocaleDateString("en-GB") || "Date unavailable"}
         </p>
+        {contact.outreachPartnerNames?.length ? (
+          <p className="mt-1 truncate text-xs text-muted">
+            Outreach with {contact.outreachPartnerNames.join(", ")}
+          </p>
+        ) : null}
         {contact.linkedUserId && (
           <p className="text-xs font-semibold text-primary">CLC Friends</p>
         )}
       </button>
       {(contact.createdById === user?.uid ||
         contact.linkedByUid === user?.uid ||
+        contact.outreachPartnerIds?.includes(user?.uid || "") ||
         user?.role === "organizer") && (
         <button
           type="button"
@@ -414,7 +471,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       </div>
       {contacts.length === 0 ? (
         <p className="border-y border-border py-8 text-center text-sm text-muted">
-          No contacts in this group.
+          {normalizedSearch ? "No matching contacts." : "No contacts in this group."}
         </p>
       ) : (
         <div className="mt-2 space-y-5">
@@ -434,8 +491,34 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     </section>
   );
 
+  const formToast = showForm && (saveError || success)
+    ? createPortal(
+      <div className="pointer-events-none fixed inset-x-4 top-4 z-[100] flex justify-center sm:justify-end">
+        <div
+          className={`pointer-events-auto flex w-full max-w-md items-start justify-between gap-3 shadow-app-md ${saveError ? "app-alert-error" : "app-alert-success"}`}
+          role={saveError ? "alert" : "status"}
+        >
+          <span className="flex-1">{saveError || success}</span>
+          <button
+            type="button"
+            className="app-icon-button size-8 shrink-0"
+            aria-label="Dismiss notification"
+            onClick={() => {
+              setSaveError(null);
+              setSuccess(null);
+            }}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>,
+      document.body,
+    )
+    : null;
+
   return (
     <>
+    {formToast}
     <section className={`space-y-6 ${showForm ? "hidden" : ""}`}>
       {onBack && (
         <button type="button" onClick={onBack} className="app-button-text -ml-3">
@@ -467,9 +550,20 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       {(error || saveError) && (
         <div className="app-alert-error">{error || saveError}</div>
       )}
+      <label className="relative block">
+        <span className="sr-only">Search sheep contacts</span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Search sheep contacts"
+          className="app-input pl-10"
+        />
+      </label>
       <div className="space-y-8">
-        {renderDateSection("My Contacts", ownContacts)}
-        {renderDateSection("Community Contacts", visibleCommunityContacts, true)}
+        {renderDateSection("My Contacts", filteredOwnContacts)}
+        {renderDateSection("Community Contacts", filteredCommunityContacts, true)}
       </div>
     </section>
       {showForm && (
@@ -509,6 +603,16 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
                 className="app-input"
               />
             </label>
+            <label className="mt-3 block">
+              <span className="app-label">Contact date</span>
+              <input
+                type="date"
+                required
+                value={form.contactDate || getLocalToday()}
+                onChange={(event) => setForm({ ...form, contactDate: event.target.value })}
+                className="app-input"
+              />
+            </label>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <label>
                 <span className="app-label">Phone</span>
@@ -534,6 +638,25 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
                 </select>
               </label>
             </div>
+            {user && (
+              <UserSearchInput
+                currentUserId={user.uid}
+                label="Outreach partners"
+                placeholder="Search CLC Friends accounts..."
+                selectedUsers={(form.outreachPartnerIds || []).map((uid, index) => ({
+                  uid,
+                  displayName: form.outreachPartnerNames?.[index] || "CLC Friend",
+                }))}
+                onSelectUsers={(partners) => setForm((current) => ({
+                  ...current,
+                  outreachPartnerIds: partners.map((partner) => partner.uid),
+                  outreachPartnerNames: partners.map((partner) => partner.displayName),
+                }))}
+                allowAlreadyLinkedUsers
+                maxSelectedUsers={10}
+                disabled={Boolean(editing && editing.createdById !== user.uid && user.role !== "organizer" && user.role !== "admin")}
+              />
+            )}
             <label className="mt-3 block">
               <span className="app-label">Gospel progress</span>
               <select

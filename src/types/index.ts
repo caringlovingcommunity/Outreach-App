@@ -107,6 +107,7 @@ export interface Contact {
   createdById: string;
   createdByName: string;
   name: string;
+  contactDate?: string;
   phoneNumber?: string;
   gender: Gender;
   photoUrl?: string | null;
@@ -117,6 +118,8 @@ export interface Contact {
   linkedUserId?: string;
   linkedAt?: any;
   linkedByUid?: string;
+  outreachPartnerIds?: string[];
+  outreachPartnerNames?: string[];
   createdAt: any;
   updatedAt: any;
 }

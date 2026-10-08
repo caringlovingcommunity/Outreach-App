@@ -58,11 +58,19 @@ const emptyFollowUpProgress = (): FollowUpProgress => Object.fromEntries(
 const toPayload = (input: ContactInput, createdById: string, createdByName: string) => {
   const phoneNumber = cleanOptional(input.phoneNumber);
   const remarks = cleanOptional(input.remarks);
+  const outreachPartners = new Map<string, string>();
+  (input.outreachPartnerIds || []).forEach((uid, index) => {
+    const trimmedUid = uid.trim();
+    if (trimmedUid && outreachPartners.size < 10 && !outreachPartners.has(trimmedUid)) {
+      outreachPartners.set(trimmedUid, input.outreachPartnerNames?.[index]?.trim().slice(0, 80) || 'CLC Friend');
+    }
+  });
 
   return {
     createdById,
     createdByName,
     name: input.name.trim(),
+    ...(input.contactDate ? { contactDate: input.contactDate } : {}),
     ...(phoneNumber ? { phoneNumber } : {}),
     gender: input.gender,
     photoUrl: null,
@@ -71,6 +79,8 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
     followUpProgress: input.responseStatuses.includes('say_yes_follow_up')
       ? input.followUpProgress
       : emptyFollowUpProgress(),
+    outreachPartnerIds: [...outreachPartners.keys()],
+    outreachPartnerNames: [...outreachPartners.values()],
     ...(remarks ? { remarks } : {}),
   };
 };
@@ -93,7 +103,7 @@ const mapContact = (contactDoc: { id: string; data: () => Record<string, unknown
 });
 
 export const getMyContacts = async (userId: string): Promise<Contact[]> => {
-  const [createdSnapshot, linkedSnapshot] = await Promise.all([
+  const [createdSnapshot, linkedSnapshot, sharedSnapshot] = await Promise.all([
     getDocs(query(
       contactsCollection,
       where('createdById', '==', userId),
@@ -104,9 +114,10 @@ export const getMyContacts = async (userId: string): Promise<Contact[]> => {
       where('linkedByUid', '==', userId),
       orderBy('createdAt', 'desc'),
     )),
+    getDocs(query(contactsCollection, where('outreachPartnerIds', 'array-contains', userId))),
   ]);
   const contacts = new Map<string, Contact>();
-  [...createdSnapshot.docs, ...linkedSnapshot.docs].forEach((contactDoc) => {
+  [...createdSnapshot.docs, ...linkedSnapshot.docs, ...sharedSnapshot.docs].forEach((contactDoc) => {
     contacts.set(contactDoc.id, mapContact(contactDoc));
   });
   return [...contacts.values()].sort((left, right) => {
@@ -137,18 +148,20 @@ export const subscribeToContacts = (
 ) => {
   const ownedQuery = query(contactsCollection, where('createdById', '==', userId), orderBy('createdAt', 'desc'));
   const linkedQuery = query(contactsCollection, where('linkedByUid', '==', userId), orderBy('createdAt', 'desc'));
+  const sharedQuery = query(contactsCollection, where('outreachPartnerIds', 'array-contains', userId));
   const communityQuery = query(contactsCollection, orderBy('createdAt', 'desc'));
   const filteredProfilesQuery = query(collection(db, 'users_public'), where('membershipStatus', '==', 'FILTERED'));
   let ownedContacts: Contact[] = [];
   let linkedContacts: Contact[] = [];
+  let sharedContacts: Contact[] = [];
   let communityContacts: Contact[] = [];
   let filteredUserIds = new Set<string>();
-  let loaded = { owned: false, linked: false, community: false, filtered: false };
+  let loaded = { owned: false, linked: false, shared: false, community: false, filtered: false };
 
   const emit = () => {
     if (!Object.values(loaded).every(Boolean)) return;
     const myContacts = new Map<string, Contact>();
-    [...ownedContacts, ...linkedContacts].forEach((contact) => myContacts.set(contact.id, contact));
+    [...ownedContacts, ...linkedContacts, ...sharedContacts].forEach((contact) => myContacts.set(contact.id, contact));
     onChange({
       myContacts: [...myContacts.values()].sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0)),
       communityContacts,
@@ -166,6 +179,11 @@ export const subscribeToContacts = (
     loaded.linked = true;
     emit();
   }, onError);
+  const unsubscribeShared = onSnapshot(sharedQuery, (snapshot) => {
+    sharedContacts = snapshot.docs.map(mapContact);
+    loaded.shared = true;
+    emit();
+  }, onError);
   const unsubscribeCommunity = onSnapshot(communityQuery, (snapshot) => {
     communityContacts = snapshot.docs.map(mapContact);
     loaded.community = true;
@@ -180,6 +198,7 @@ export const subscribeToContacts = (
   return () => {
     unsubscribeOwned();
     unsubscribeLinked();
+    unsubscribeShared();
     unsubscribeCommunity();
     unsubscribeFiltered();
   };

@@ -27,6 +27,44 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users_public/$(request.auth.uid)).data.visionCastingAccepted == true);
     }
 
+    function validStringListItem(values, index, maxLength) {
+      return values.size() <= index ||
+        (values[index] is string &&
+          values[index].size() > 0 &&
+          values[index].size() <= maxLength);
+    }
+
+    function validOutreachPartnerFields(data) {
+      return (!('outreachPartnerIds' in data) && !('outreachPartnerNames' in data)) ||
+        ('outreachPartnerIds' in data &&
+          'outreachPartnerNames' in data &&
+          data.outreachPartnerIds is list &&
+          data.outreachPartnerNames is list &&
+          data.outreachPartnerIds.size() <= 10 &&
+          data.outreachPartnerNames.size() <= 10 &&
+          data.outreachPartnerIds.size() == data.outreachPartnerNames.size() &&
+          validStringListItem(data.outreachPartnerIds, 0, 128) &&
+          validStringListItem(data.outreachPartnerIds, 1, 128) &&
+          validStringListItem(data.outreachPartnerIds, 2, 128) &&
+          validStringListItem(data.outreachPartnerIds, 3, 128) &&
+          validStringListItem(data.outreachPartnerIds, 4, 128) &&
+          validStringListItem(data.outreachPartnerIds, 5, 128) &&
+          validStringListItem(data.outreachPartnerIds, 6, 128) &&
+          validStringListItem(data.outreachPartnerIds, 7, 128) &&
+          validStringListItem(data.outreachPartnerIds, 8, 128) &&
+          validStringListItem(data.outreachPartnerIds, 9, 128) &&
+          validStringListItem(data.outreachPartnerNames, 0, 80) &&
+          validStringListItem(data.outreachPartnerNames, 1, 80) &&
+          validStringListItem(data.outreachPartnerNames, 2, 80) &&
+          validStringListItem(data.outreachPartnerNames, 3, 80) &&
+          validStringListItem(data.outreachPartnerNames, 4, 80) &&
+          validStringListItem(data.outreachPartnerNames, 5, 80) &&
+          validStringListItem(data.outreachPartnerNames, 6, 80) &&
+          validStringListItem(data.outreachPartnerNames, 7, 80) &&
+          validStringListItem(data.outreachPartnerNames, 8, 80) &&
+          validStringListItem(data.outreachPartnerNames, 9, 80));
+    }
+
     function autoApproveMembersEnabled() {
       return exists(/databases/$(database)/documents/app_settings/main) &&
         get(/databases/$(database)/documents/app_settings/main).data.autoApproveMembers == true;
@@ -178,10 +216,15 @@ service cloud.firestore {
       return data.keys().hasOnly([
           'createdById', 'createdByName', 'name', 'phoneNumber', 'gender',
           'photoUrl', 'gospelStatus', 'responseStatuses', 'followUpProgress',
-          'remarks', 'createdAt', 'updatedAt', 'linkedUserId', 'linkedAt', 'linkedByUid'
+          'remarks', 'createdAt', 'updatedAt', 'linkedUserId', 'linkedAt', 'linkedByUid',
+          'outreachPartnerIds', 'outreachPartnerNames', 'contactDate'
         ]) &&
         data.createdById is string && data.createdByName is string &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        (!('contactDate' in data) ||
+          (data.contactDate is string &&
+            data.contactDate.size() == 10 &&
+            data.contactDate.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'))) &&
         data.gender in ['male', 'female'] &&
         data.gospelStatus in ['not_started', 'gospel_conversation', 'gospel_presentation'] &&
         data.responseStatuses is list && data.responseStatuses.size() <= 4 &&
@@ -189,6 +232,7 @@ service cloud.firestore {
           'pray_receive_christ', 'already_christian', 'not_ready', 'say_yes_follow_up'
         ]) &&
         data.followUpProgress is map &&
+        validOutreachPartnerFields(data) &&
         data.followUpProgress.keys().hasOnly([
           'vision_cast', 'jof1_1', 'jof1_2', 'jof1_3', 'jof1_4',
           'jof1_5', 'jof1_6', 'jof1_7', 'jof1_8'
@@ -236,6 +280,16 @@ service cloud.firestore {
       allow update: if isMember() &&
         isOwner(resource.data.linkedByUid) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['linkedUserId', 'linkedAt', 'linkedByUid']) &&
+        request.resource.data.createdById == resource.data.createdById &&
+        request.resource.data.createdByName == resource.data.createdByName &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        validContact(request.resource.data);
+      allow update: if isMember() &&
+        request.auth.uid in resource.data.outreachPartnerIds &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'contactDate', 'phoneNumber', 'gender', 'photoUrl', 'gospelStatus', 'responseStatuses',
+          'followUpProgress', 'remarks', 'updatedAt'
+        ]) &&
         request.resource.data.createdById == resource.data.createdById &&
         request.resource.data.createdByName == resource.data.createdByName &&
         request.resource.data.createdAt == resource.data.createdAt &&
