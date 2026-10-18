@@ -134,7 +134,7 @@ const OverviewNode: React.FC<{
       {hasChildren && (
         <button
           type="button"
-          className="flex w-6 shrink-0 items-center justify-center border-l border-border/70 text-muted transition-colors hover:bg-primary-soft hover:text-primary"
+          className="flex w-9 shrink-0 items-center justify-center border-l border-border/70 text-muted transition-colors hover:bg-primary-soft hover:text-primary sm:w-6"
           onClick={() => onToggleCollapse(node.id)}
           aria-expanded={!isCollapsed}
           aria-label={isCollapsed ? `Expand ${node.displayName}` : `Collapse ${node.displayName}`}

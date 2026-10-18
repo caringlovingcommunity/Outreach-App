@@ -59,7 +59,7 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({ node, onCl
   return (
     <div className="app-modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="app-modal mx-auto mt-auto w-full max-w-lg space-y-4 sm:mt-0"
+        className="app-modal mx-auto mt-auto max-h-[85vh] w-full max-w-lg space-y-4 overflow-y-auto sm:mt-0"
         role="dialog"
         aria-modal="true"
         aria-label={`${node.displayName} profile`}
@@ -91,7 +91,7 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({ node, onCl
         ) : error ? (
           <p className="app-alert-error" role="alert">{error}</p>
         ) : member ? (
-          <dl className="grid grid-cols-2 gap-3">
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Role" value={member.role} />
             <Field label="Membership" value={member.membershipStatus} />
             <Field label="Faculty" value={member.faculty} />
@@ -104,7 +104,7 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({ node, onCl
             <Field label="Phone" value={member.privateDetails?.phone} />
           </dl>
         ) : contact ? (
-          <dl className="grid grid-cols-2 gap-3">
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Gender" value={contact.gender === 'male' ? 'Male' : 'Female'} />
             <Field label="Gospel status" value={GOSPEL_LABELS[contact.gospelStatus] ?? contact.gospelStatus} />
             <Field

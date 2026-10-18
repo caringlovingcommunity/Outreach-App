@@ -48,7 +48,7 @@ export const RemoveNodeDialog: React.FC<RemoveNodeDialogProps> = ({
   return (
     <div className="app-modal-backdrop" onClick={onCancel} role="presentation">
       <div
-        className="app-modal mx-auto mt-auto w-full max-w-lg space-y-4 sm:mt-0"
+        className="app-modal mx-auto mt-auto max-h-[85vh] w-full max-w-lg space-y-4 overflow-y-auto sm:mt-0"
         role="dialog"
         aria-modal="true"
         aria-labelledby="remove-node-title"

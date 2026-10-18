@@ -41,7 +41,7 @@ export const UnplacedPanel: React.FC<UnplacedPanelProps> = ({
       {placementTargetName && (
         <div className="flex items-center justify-between gap-2 rounded-app-md border border-primary-muted bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
           <span className="truncate">Adding under {placementTargetName}</span>
-          <button type="button" className="app-icon-button size-7" onClick={onClearTarget} aria-label="Cancel placement target">
+          <button type="button" className="app-icon-button size-9 sm:size-7" onClick={onClearTarget} aria-label="Cancel placement target">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>

@@ -328,7 +328,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
             <div className="inline-flex rounded-app-md border border-border bg-surface-muted p-0.5" role="group" aria-label="Overview layout">
               <button
                 type="button"
-                className={`inline-flex min-h-8 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
                 onClick={() => setOverviewView('map')}
                 aria-pressed={overviewView === 'map'}
               >
@@ -337,7 +337,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
               </button>
               <button
                 type="button"
-                className={`inline-flex min-h-8 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
                 onClick={() => setOverviewView('cards')}
                 aria-pressed={overviewView === 'cards'}
               >
@@ -458,7 +458,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   return (
     <section className="mx-auto max-w-5xl space-y-4 pb-6">
       <div className="home-page-hero -mx-4 -mt-6 bg-primary px-4 py-6 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
-        <button type="button" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/85 transition-colors hover:text-white" onClick={closeTree}>
+        <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/85 transition-colors hover:text-white" onClick={closeTree}>
           <ArrowLeft className="h-3.5 w-3.5" />
           All trees
         </button>
@@ -474,14 +474,14 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-app-md border border-primary bg-primary-soft px-3 py-2 text-sm text-primary">
           <span className="font-semibold">Moving {movingNode.displayName} — tap a new discipler, or make them a root.</span>
           <span className="flex items-center gap-2">
-            <button type="button" className="app-button-secondary min-h-9 px-3 py-1.5 text-xs" onClick={() => void handleSelectParent(null)} disabled={busy}>Make root</button>
-            <button type="button" className="app-button-text min-h-9 px-2 py-1.5 text-xs" onClick={() => setMovingNodeId(null)} disabled={busy}>Cancel</button>
+            <button type="button" className="app-button-secondary min-h-11 px-3 py-1.5 text-xs sm:min-h-9" onClick={() => void handleSelectParent(null)} disabled={busy}>Make root</button>
+            <button type="button" className="app-button-text min-h-11 px-2 py-1.5 text-xs sm:min-h-9" onClick={() => setMovingNodeId(null)} disabled={busy}>Cancel</button>
           </span>
         </div>
       ) : placementTargetName ? (
         <div className="flex items-center justify-between gap-2 rounded-app-md border border-primary-muted bg-primary-soft px-3 py-2 text-sm text-primary">
           <span className="font-semibold">Adding someone under {placementTargetName}</span>
-          <button type="button" className="app-icon-button size-7" onClick={() => setPlacementTargetId(null)} aria-label="Stop adding under this node">
+          <button type="button" className="app-icon-button size-9 sm:size-7" onClick={() => setPlacementTargetId(null)} aria-label="Stop adding under this node">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -501,11 +501,11 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
             <div className="flex items-center gap-3">
               <h2 className="text-sm font-bold text-text">Tree</h2>
               <div className="inline-flex rounded-app-md border border-border bg-surface-muted p-0.5" role="group" aria-label="Tree layout">
-                <button type="button" className={`inline-flex min-h-8 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors ${view === 'chart' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('chart')} aria-pressed={view === 'chart'}>
+                <button type="button" className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${view === 'chart' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('chart')} aria-pressed={view === 'chart'}>
                   <Network className="h-3.5 w-3.5" />
                   Chart
                 </button>
-                <button type="button" className={`inline-flex min-h-8 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('list')} aria-pressed={view === 'list'}>
+                <button type="button" className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${view === 'list' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('list')} aria-pressed={view === 'list'}>
                   <ListTree className="h-3.5 w-3.5" />
                   List
                 </button>
