@@ -236,7 +236,7 @@ export const subscribeToApprovedUsers = (
   onChange: (users: PublicUserProfile[]) => void,
   onError: (error: Error) => void,
 ) => onSnapshot(
-  query(collection(db, 'users_public'), where('membershipStatus', '==', 'APPROVED'), orderBy('displayName', 'asc'), limit(100)),
+  query(collection(db, 'users_public'), where('membershipStatus', '==', 'APPROVED'), orderBy('displayName', 'asc'), limit(500)),
   (snapshot) => onChange(snapshot.docs.map((userDoc) => userDoc.data() as PublicUserProfile)),
   onError,
 );

@@ -304,5 +304,119 @@ service cloud.firestore {
       allow delete: if isMember() &&
         (isOwner(resource.data.createdById) || isAdmin());
     }
+
+    // ------------------------------------------------------------------
+    // Discipleship trees
+    // ------------------------------------------------------------------
+
+    function discipleshipTreeExists(treeId) {
+      return exists(/databases/$(database)/documents/discipleshipTrees/$(treeId));
+    }
+
+    function validDiscipleshipNodeId(treeId, nodeType, refId, nodeId) {
+      return nodeType in ['user', 'contact'] &&
+        treeId is string && treeId.size() > 0 && treeId.size() <= 128 &&
+        refId is string && refId.size() > 0 && refId.size() <= 128 &&
+        nodeId == treeId + '__' + (nodeType == 'user' ? 'u_' : 'c_') + refId;
+    }
+
+    function validDiscipleshipNodeShape(data, treeId) {
+      return data.keys().hasOnly([
+          'treeId', 'nodeType', 'refId', 'displayName', 'photoUrl',
+          'parentId', 'path', 'depth', 'childOrder', 'gospelStatus',
+          'membershipStatus', 'addedByUid', 'addedByName', 'createdAt', 'updatedAt'
+        ]) &&
+        data.treeId == treeId &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 120 &&
+        (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 2048)) &&
+        data.path is list && data.path.size() > 0 && data.path.size() <= 100 &&
+        data.depth is int && data.depth == data.path.size() - 1 &&
+        data.childOrder is number &&
+        data.addedByUid is string &&
+        (!('gospelStatus' in data) ||
+          data.gospelStatus in ['not_started', 'gospel_conversation', 'gospel_presentation']) &&
+        (!('membershipStatus' in data) ||
+          data.membershipStatus in ['PENDING', 'APPROVED', 'REJECTED', 'FILTERED']) &&
+        data.path[data.path.size() - 1] is string;
+    }
+
+    function validDiscipleshipParent(treeId, nodeId, parentId, path, depth) {
+      return (parentId == null &&
+          path == [nodeId] &&
+          depth == 0) ||
+        (parentId is string &&
+          path.size() > 1 &&
+          path[path.size() - 1] == nodeId &&
+          depth == path.size() - 1 &&
+          get(/databases/$(database)/documents/discipleshipNodes/$(parentId)).data.treeId == treeId &&
+          get(/databases/$(database)/documents/discipleshipNodes/$(parentId)).data.path.size() + 1 == path.size() &&
+          !(nodeId in get(/databases/$(database)/documents/discipleshipNodes/$(parentId)).data.path));
+    }
+
+    // Structural placement validation only — deliberately no document lookups.
+    // Batched writes (and transactions) allow just 20 document access calls per
+    // request, and a splice-repath touches one different parent path per
+    // descendant, so get(parent) here would make large rewrites fail. Cycle
+    // prevention lives in the transactional service; this still guarantees a
+    // well-formed path for every stored node.
+    function validDiscipleshipPlacement(data, nodeId) {
+      return (data.parentId == null || data.parentId is string) &&
+        data.path is list && data.path.size() > 0 && data.path.size() <= 100 &&
+        data.path[data.path.size() - 1] == nodeId &&
+        data.depth is int && data.depth == data.path.size() - 1 &&
+        (data.parentId != null || (data.path.size() == 1 && data.depth == 0));
+    }
+
+    match /discipleshipTrees/{treeId} {
+      allow read: if isAuthenticated();
+      allow create: if isOrganizer() &&
+        request.resource.data.keys().hasOnly([
+          'name', 'description', 'createdByUid', 'createdByName', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
+        (!('description' in request.resource.data) ||
+          (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&
+        request.resource.data.createdByUid == request.auth.uid &&
+        request.resource.data.createdByName is string;
+      allow update: if isOrganizer() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'updatedAt']);
+      allow delete: if isOrganizer();
+    }
+
+    match /discipleshipNodes/{nodeId} {
+      allow read: if isAuthenticated();
+      // Creates are single-document requests (10 access-call budget), so the
+      // full parent-chain check is affordable here. Adds/imports go one at a
+      // time; only bulk rewrites (update/delete) need the lighter validation.
+      allow create: if isOrganizer() &&
+        validDiscipleshipNodeId(request.resource.data.treeId, request.resource.data.nodeType, request.resource.data.refId, nodeId) &&
+        discipleshipTreeExists(request.resource.data.treeId) &&
+        validDiscipleshipNodeShape(request.resource.data, request.resource.data.treeId) &&
+        validDiscipleshipPlacement(request.resource.data, nodeId) &&
+        validDiscipleshipParent(
+          request.resource.data.treeId,
+          nodeId,
+          request.resource.data.parentId,
+          request.resource.data.path,
+          request.resource.data.depth);
+      // Move and splice-repath both land here: identity fields are immutable.
+      // Placement is validated structurally — the transactional service owns
+      // cycle prevention and prefix consistency, since a batched repath cannot
+      // resolve per-node parent documents within Firestore's access-call budget.
+      allow update: if isOrganizer() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'parentId', 'path', 'depth', 'childOrder', 'updatedAt',
+          'displayName', 'photoUrl', 'gospelStatus', 'membershipStatus', 'addedByName'
+        ]) &&
+        resource.data.treeId == request.resource.data.treeId &&
+        resource.data.nodeType == request.resource.data.nodeType &&
+        resource.data.refId == request.resource.data.refId &&
+        resource.data.addedByUid == request.resource.data.addedByUid &&
+        validDiscipleshipNodeId(request.resource.data.treeId, request.resource.data.nodeType, request.resource.data.refId, nodeId) &&
+        validDiscipleshipNodeShape(request.resource.data, request.resource.data.treeId) &&
+        validDiscipleshipPlacement(request.resource.data, nodeId);
+      allow delete: if isOrganizer();
+    }
   }
 }

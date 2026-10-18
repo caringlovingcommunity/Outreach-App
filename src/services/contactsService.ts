@@ -141,6 +141,11 @@ export const getCommunityContacts = async (): Promise<Contact[]> => {
   return snapshot.docs.map(mapContact);
 };
 
+export const getContactById = async (contactId: string): Promise<Contact | null> => {
+  const contactSnapshot = await getDoc(doc(db, 'contacts', contactId));
+  return contactSnapshot.exists() ? mapContact(contactSnapshot) : null;
+};
+
 export const subscribeToContacts = (
   userId: string,
   onChange: (contacts: { myContacts: Contact[]; communityContacts: Contact[]; filteredContacts: Contact[] }) => void,

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { ClipboardCheck, Handshake, Home, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
+import { ClipboardCheck, Handshake, Home, Network, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
@@ -14,13 +14,14 @@ const OrganizerStudentList = lazy(() => import('./OrganizerStudentList').then((m
 const FriendsPage = lazy(() => import('./FriendsPage').then((module) => ({ default: module.FriendsPage })));
 const OrganizerApprovalsPage = lazy(() => import('./OrganizerApprovalsPage').then((module) => ({ default: module.OrganizerApprovalsPage })));
 const PairingHelperPage = lazy(() => import('./PairingHelperPage').then((module) => ({ default: module.PairingHelperPage })));
+const DiscipleshipTreePage = lazy(() => import('./DiscipleshipTreePage').then((module) => ({ default: module.DiscipleshipTreePage })));
 
 interface OrganizerDashboardProps {
   user: UserProfile;
   logout: () => Promise<void>;
 }
 
-type OrganizerTab = 'home' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'pairing_helper' | 'profile' | 'user_management';
+type OrganizerTab = 'home' | 'events' | 'student_directory' | 'approvals' | 'friends' | 'pairing_helper' | 'discipleship_trees' | 'profile' | 'user_management';
 
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
@@ -28,6 +29,7 @@ const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ class
   { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
   { id: 'pairing_helper', label: 'Pairing Helper', icon: Handshake },
+  { id: 'discipleship_trees', label: 'Discipleship Trees', icon: Network },
 ];
 
 const ADMIN_TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -146,6 +148,8 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
               <OrganizerEvents user={user} />
             ) : activeTab === 'pairing_helper' ? (
               <PairingHelperPage />
+            ) : activeTab === 'discipleship_trees' ? (
+              <DiscipleshipTreePage user={user} />
             ) : (
               <HomePage displayName={user.displayName} activeSemesterName={activeSemester?.name} />
             )}
