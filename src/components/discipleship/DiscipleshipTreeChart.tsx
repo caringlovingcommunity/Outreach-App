@@ -1,113 +1,7 @@
 import React, { useMemo } from 'react';
 import { ChevronDown, ChevronRight, MoveRight, Plus, Trash2, UserRound } from 'lucide-react';
-import type { DiscipleshipNode, DiscipleshipTreeNode } from '../../types/discipleship';
 import type { DiscipleshipTreeViewProps } from './treeInteractions';
-
-const NODE_WIDTH = 200;
-const NODE_HEIGHT = 86;
-const H_GAP = 20;
-const V_GAP = 54;
-
-interface PositionedNode {
-  id: string;
-  node: DiscipleshipNode;
-  /** Horizontal centre. */
-  x: number;
-  /** Top edge. */
-  y: number;
-  /** Descendants hidden behind a collapsed node. */
-  hiddenCount: number;
-  childCount: number;
-}
-
-interface Edge {
-  id: string;
-  parentX: number;
-  parentBottom: number;
-  childX: number;
-  childTop: number;
-}
-
-interface Layout {
-  nodes: PositionedNode[];
-  edges: Edge[];
-  width: number;
-  height: number;
-}
-
-const countDescendants = (entry: DiscipleshipTreeNode): number =>
-  entry.children.reduce((total, child) => total + 1 + countDescendants(child), 0);
-
-/**
- * Tidy-tree layout: leaves consume sequential horizontal slots, parents are
- * centred over their visible children. Collapsed nodes are laid out as leaves,
- * so a big tree stays readable instead of growing forever sideways.
- */
-const layoutForest = (forest: DiscipleshipTreeNode[], expandedIds: Set<string>): Layout => {
-  const nodes: PositionedNode[] = [];
-  const edges: Edge[] = [];
-  let cursor = 0;
-  let maxDepth = 0;
-
-  const place = (entry: DiscipleshipTreeNode, depth: number): PositionedNode => {
-    maxDepth = Math.max(maxDepth, depth);
-    const isExpanded = expandedIds.has(entry.node.id);
-    const visibleChildren = isExpanded ? entry.children : [];
-
-    let x: number;
-    if (visibleChildren.length === 0) {
-      x = cursor + NODE_WIDTH / 2;
-      cursor += NODE_WIDTH + H_GAP;
-    } else {
-      const placedChildren = visibleChildren.map((child) => place(child, depth + 1));
-      x = (placedChildren[0].x + placedChildren[placedChildren.length - 1].x) / 2;
-    }
-
-    const positioned: PositionedNode = {
-      id: entry.node.id,
-      node: entry.node,
-      x,
-      y: depth * (NODE_HEIGHT + V_GAP),
-      hiddenCount: isExpanded ? 0 : countDescendants(entry),
-      childCount: entry.children.length,
-    };
-    nodes.push(positioned);
-    return positioned;
-  };
-
-  const positionedById = new Map<string, PositionedNode>();
-  forest.forEach((root) => {
-    place(root, 0);
-  });
-  nodes.forEach((positioned) => positionedById.set(positioned.id, positioned));
-
-  // Re-walk the visible hierarchy now that every node has coordinates.
-  const collectEdges = (entry: DiscipleshipTreeNode) => {
-    const parent = positionedById.get(entry.node.id);
-    if (!parent) return;
-    const visibleChildren = expandedIds.has(entry.node.id) ? entry.children : [];
-    visibleChildren.forEach((child) => {
-      const childPosition = positionedById.get(child.node.id);
-      if (!childPosition) return;
-      edges.push({
-        id: `${parent.id}->${child.node.id}`,
-        parentX: parent.x,
-        parentBottom: parent.y + NODE_HEIGHT,
-        childX: childPosition.x,
-        childTop: childPosition.y,
-      });
-      collectEdges(child);
-    });
-  };
-  forest.forEach(collectEdges);
-
-  return {
-    nodes,
-    edges,
-    width: Math.max(cursor - H_GAP, NODE_WIDTH),
-    height: (maxDepth + 1) * NODE_HEIGHT + maxDepth * V_GAP,
-  };
-};
+import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, DEFAULT_V_GAP, layoutForest, type PositionedNode } from './treeLayout';
 
 const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?';
@@ -142,11 +36,11 @@ const ChartNode: React.FC<{
   return (
     <div
       className="absolute"
-      style={{ left: positioned.x - NODE_WIDTH / 2, top: positioned.y, width: NODE_WIDTH }}
+      style={{ left: positioned.x - DEFAULT_NODE_WIDTH / 2, top: positioned.y, width: DEFAULT_NODE_WIDTH }}
     >
       <div
         id={`discipleship-node-${node.id}`}
-        className={`flex h-[86px] flex-col rounded-app-lg border bg-surface p-2.5 shadow-app-sm transition-colors ${
+        className={`flex flex-col rounded-app-lg border bg-surface p-2.5 shadow-app-sm transition-colors ${
           isFocused ? 'ring-2 ring-primary ring-offset-2'
             : isMoving ? 'border-primary bg-primary-soft'
               : isDropDisabled ? 'border-border opacity-40'
@@ -154,6 +48,7 @@ const ChartNode: React.FC<{
                   : isPlacementTarget ? 'border-primary bg-primary-soft'
                     : 'border-border hover:border-primary-muted'
         }`}
+        style={{ height: DEFAULT_NODE_HEIGHT }}
       >
         <button
           type="button"
@@ -238,7 +133,7 @@ export const DiscipleshipTreeChart: React.FC<DiscipleshipTreeViewProps> = (props
           aria-hidden="true"
         >
           {layout.edges.map((edge) => {
-            const midY = edge.parentBottom + V_GAP / 2;
+            const midY = edge.parentBottom + DEFAULT_V_GAP / 2;
             return (
               <path
                 key={edge.id}

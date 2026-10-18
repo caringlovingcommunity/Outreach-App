@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, ListTree, Loader2, Network, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, LayoutGrid, ListTree, Loader2, Network, Plus, Trash2, X } from 'lucide-react';
 import { addNode, createTree, deleteTree, moveNode, removeNodeWithChildren } from '../services/discipleshipService';
 import { useDiscipleshipTree, type TreeOverviewStats, type TreeCandidate } from '../hooks/useDiscipleshipTree';
 import { DiscipleshipTreeView } from './discipleship/DiscipleshipTreeView';
 import { DiscipleshipTreeChart } from './discipleship/DiscipleshipTreeChart';
+import { DiscipleshipTreeOverview } from './discipleship/DiscipleshipTreeOverview';
 import type { DiscipleshipTreeViewProps } from './discipleship/treeInteractions';
 import { UnplacedPanel } from './discipleship/UnplacedPanel';
 import { RemoveNodeDialog } from './discipleship/RemoveNodeDialog';
@@ -17,14 +18,6 @@ interface DiscipleshipTreePageProps {
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
-
-const statChip = (label: string, value: string | number, hint?: string) => (
-  <div className="flex min-w-[120px] flex-col items-start gap-1 rounded-app-md border border-border bg-surface-muted px-3 py-2">
-    <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
-    <p className="text-lg font-bold text-text">{value}</p>
-    {hint && <p className="text-[11px] text-subtle">{hint}</p>}
-  </div>
-);
 
 const RootsPreview: React.FC<{ stats?: TreeOverviewStats; onOpen: (nodeId: string) => void }> = ({ stats, onOpen }) => {
   if (!stats) return null;
@@ -64,14 +57,15 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   const {
     trees,
     overviewByTree,
-    overviewTotals,
     selectedTree,
     selectedTreeId,
     setSelectedTreeId,
     nodes,
     nodeById,
     forest,
+    forestByTree,
     candidates,
+    duplicateTreeCounts,
     treesLoading,
     nodesLoading,
     error,
@@ -80,7 +74,9 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   } = useDiscipleshipTree(user.uid);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [mapCollapsedIds, setMapCollapsedIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<'chart' | 'list'>('chart');
+  const [overviewView, setOverviewView] = useState<'map' | 'cards'>('map');
   const [movingNodeId, setMovingNodeId] = useState<string | null>(null);
   const [placementTargetId, setPlacementTargetId] = useState<string | null>(null);
   const [removingNode, setRemovingNode] = useState<DiscipleshipNode | null>(null);
@@ -153,6 +149,16 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       window.clearTimeout(focusTimer);
       setFocusTimer(null);
     }
+  };
+
+  /** Independent from the detail view's folds so the two never fight. */
+  const toggleMapCollapsed = (nodeId: string) => {
+    setMapCollapsedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
   };
 
   const canDropOn = (target: DiscipleshipNode) => {
@@ -279,10 +285,32 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-text">Your trees</h2>
-          <button type="button" className="app-button-primary" onClick={() => setShowCreate((open) => !open)}>
-            <Plus className="h-4 w-4" />
-            New tree
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-app-md border border-border bg-surface-muted p-0.5" role="group" aria-label="Overview layout">
+              <button
+                type="button"
+                className={`inline-flex min-h-8 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                onClick={() => setOverviewView('map')}
+                aria-pressed={overviewView === 'map'}
+              >
+                <Network className="h-3.5 w-3.5" />
+                Map
+              </button>
+              <button
+                type="button"
+                className={`inline-flex min-h-8 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                onClick={() => setOverviewView('cards')}
+                aria-pressed={overviewView === 'cards'}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Cards
+              </button>
+            </div>
+            <button type="button" className="app-button-primary" onClick={() => setShowCreate((open) => !open)}>
+              <Plus className="h-4 w-4" />
+              New tree
+            </button>
+          </div>
         </div>
 
         {showCreate && (
@@ -314,63 +342,74 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {statChip('Trees', overviewTotals.trees)}
-              {statChip('People placed', overviewTotals.placed, `Distinct: ${overviewTotals.distinctPlaced}`)}
-              {statChip('Members / Contacts', `${overviewTotals.members} / ${overviewTotals.contacts}`)}
-              {statChip('Deepest tree', overviewTotals.deepest, 'Levels')}
-              {statChip(
-                'Not placed anywhere',
-                overviewTotals.unplacedMembers + overviewTotals.unplacedContacts,
-                `Members: ${overviewTotals.unplacedMembers} · Contacts: ${overviewTotals.unplacedContacts}`,
-              )}
-            </div>
+            {/* Global stat chips intentionally omitted while the map is the default view;
+                per-tree numbers live in each map header. */}
 
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {trees.map((tree) => (
-                <li key={tree.id} className="app-panel flex flex-col gap-3 p-4">
-                  <button type="button" className="flex items-start justify-between gap-3 text-left" onClick={() => openTree(tree.id)}>
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2 text-base font-bold text-text">
-                        <Network className="h-4 w-4 shrink-0 text-primary" />
-                        <span className="truncate">{tree.name}</span>
-                      </span>
-                      {tree.description && <span className="mt-1 block text-sm text-muted">{tree.description}</span>}
-                      <span className="mt-1 block text-xs text-muted">
-                        {(() => {
-                          const stats = overviewByTree.get(tree.id);
-                          const total = stats?.total ?? 0;
-                          const roots = stats?.rootCount ?? 0;
-                          const members = stats?.memberCount ?? 0;
-                          const contacts = stats?.contactCount ?? 0;
-                          const levels = (stats?.maxDepth ?? -1) + 1;
-                          return `${total} ${total === 1 ? 'person' : 'people'} · ${roots} root${roots === 1 ? '' : 's'} · ${members} members / ${contacts} contacts · ${levels} level${levels === 1 ? '' : 's'}`;
-                        })()}
-                        {tree.createdByName ? ` · by ${tree.createdByName}` : ''}
-                      </span>
-                    </span>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
-                  </button>
-                  {/* Kept outside the open button: a button may not nest inside another button. */}
-                  <RootsPreview stats={overviewByTree.get(tree.id)} onOpen={(nodeId) => openTree(tree.id, nodeId)} />
-                  <div className="flex justify-end">
-                    <button type="button" className="app-button-text hover:text-error" onClick={() => void handleDeleteTree(tree)} disabled={busy}>
-                      <Trash2 className="h-4 w-4" />
-                      Delete tree
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            {trees.length === 0 && (
+            {trees.length === 0 ? (
               <div className="app-empty-state">
                 <ListTree className="h-6 w-6 text-primary" />
                 <p className="mt-2 text-sm font-semibold text-text">No trees yet</p>
                 <p className="mt-1 text-sm text-muted">Create your first tree to start placing people.</p>
               </div>
+            ) : overviewView === 'map' ? (
+              <DiscipleshipTreeOverview
+                trees={trees}
+                forestByTree={forestByTree}
+                overviewByTree={overviewByTree}
+                duplicateTreeCounts={duplicateTreeCounts}
+                collapsedIds={mapCollapsedIds}
+                onToggleCollapse={toggleMapCollapsed}
+                activeNodeId={profileNode?.id ?? null}
+                onOpenTree={(treeId) => openTree(treeId)}
+                onOpenNode={(node) => setProfileNode(node)}
+              />
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {trees.map((tree) => (
+                  <li key={tree.id} className="app-panel flex flex-col gap-3 p-4">
+                    <button type="button" className="flex items-start justify-between gap-3 text-left" onClick={() => openTree(tree.id)}>
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2 text-base font-bold text-text">
+                          <Network className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate">{tree.name}</span>
+                        </span>
+                        {tree.description && <span className="mt-1 block text-sm text-muted">{tree.description}</span>}
+                        <span className="mt-1 block text-xs text-muted">
+                          {(() => {
+                            const stats = overviewByTree.get(tree.id);
+                            const total = stats?.total ?? 0;
+                            const roots = stats?.rootCount ?? 0;
+                            const members = stats?.memberCount ?? 0;
+                            const contacts = stats?.contactCount ?? 0;
+                            const levels = (stats?.maxDepth ?? -1) + 1;
+                            return `${total} ${total === 1 ? 'person' : 'people'} · ${roots} root${roots === 1 ? '' : 's'} · ${members} members / ${contacts} contacts · ${levels} level${levels === 1 ? '' : 's'}`;
+                          })()}
+                          {/* {tree.createdByName ? ` · by ${tree.createdByName}` : ''} */}
+                        </span>
+                      </span>
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
+                    </button>
+                    {/* Kept outside the open button: a button may not nest inside another button. */}
+                    <RootsPreview stats={overviewByTree.get(tree.id)} onOpen={(nodeId) => openTree(tree.id, nodeId)} />
+                    <div className="flex justify-end">
+                      <button type="button" className="app-button-text hover:text-error" onClick={() => void handleDeleteTree(tree)} disabled={busy}>
+                        <Trash2 className="h-4 w-4" />
+                        Delete tree
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
+        )}
+
+        {profileNode && (
+          <NodeProfileDrawer
+            key={`${profileNode.nodeType}:${profileNode.refId}`}
+            node={profileNode}
+            onClose={() => setProfileNode(null)}
+          />
         )}
       </section>
     );

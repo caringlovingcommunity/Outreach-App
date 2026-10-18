@@ -86,6 +86,7 @@ const toContactCandidate = (contact: Contact): TreeCandidate => ({
 
 /** Stable empty list so memo dependencies don't change identity every render. */
 const NO_NODES: DiscipleshipNode[] = [];
+const EMPTY_FOREST: DiscipleshipTreeNode[] = [];
 
 export const useDiscipleshipTree = (currentUserId: string) => {
   const [trees, setTrees] = useState<DiscipleshipTree[]>([]);
@@ -161,7 +162,16 @@ export const useDiscipleshipTree = (currentUserId: string) => {
   const nodes = selectedTreeId ? nodesByTree.get(selectedTreeId) ?? NO_NODES : NO_NODES;
   const nodesLoading = Boolean(selectedTreeId) && !nodesLoaded;
 
-  const forest: DiscipleshipTreeNode[] = useMemo(() => buildTreeForest(nodes), [nodes]);
+  /** Render-ready forest per tree, so the overview map can draw every tree at once. */
+  const forestByTree = useMemo(() => {
+    const forests = new Map<string, DiscipleshipTreeNode[]>();
+    nodesByTree.forEach((treeNodes, treeId) => forests.set(treeId, buildTreeForest(treeNodes)));
+    return forests;
+  }, [nodesByTree]);
+
+  const forest: DiscipleshipTreeNode[] = selectedTreeId
+    ? forestByTree.get(selectedTreeId) ?? EMPTY_FOREST
+    : EMPTY_FOREST;
 
   /**
    * Same walk the tree views render, so root counts, branch counts, and depth
@@ -243,6 +253,13 @@ export const useDiscipleshipTree = (currentUserId: string) => {
     [placements],
   );
 
+  /** How many trees each ref key appears in, for the overview's duplicate badge. */
+  const duplicateTreeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    duplicates.forEach((entry) => counts.set(refKey(entry.nodeType, entry.refId), entry.treeIds.length));
+    return counts;
+  }, [duplicates]);
+
   // Candidate roster is shared, then filtered per tree and globally.
   const allCandidates = useMemo<TreeCandidate[]>(
     () => [...members.map(toMemberCandidate), ...contacts.map(toContactCandidate)],
@@ -298,7 +315,9 @@ export const useDiscipleshipTree = (currentUserId: string) => {
     nodes,
     nodeById,
     forest,
+    forestByTree,
     candidates,
+    duplicateTreeCounts,
     overviewByTree,
     overviewTotals,
     duplicates,
