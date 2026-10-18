@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ChevronDown, ChevronRight, Network, UserRound } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, Maximize2, Network, UserRound, ZoomIn, ZoomOut } from 'lucide-react';
 import { layoutForest, type Layout, type PositionedNode } from './treeLayout';
 import type { TreeOverviewStats } from '../../hooks/useDiscipleshipTree';
 import type { DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../../types/discipleship';
@@ -18,6 +18,15 @@ const EMPTY_TREE_HEIGHT = 120;
 const NAME_CHROME_WIDTH = 80;
 const NAME_FONT_WEIGHT = 600;
 const NAME_FONT_SIZE = 12;
+/**
+ * The canvas shrinks until every tree fits the panel, but only so far. Below
+ * roughly 70% the 10-12px labels stop being readable at all — a 12px line lands
+ * near 8px, and past that it is grey mush rather than text — so past the floor
+ * the panel scrolls sideways instead, which is what it did originally.
+ */
+const MIN_FIT_SCALE = 0.7;
+/** Each tap on +/− moves the zoom by this much, matching the detail chart. */
+const ZOOM_STEP = 1.25;
 
 const EMPTY_LAYOUT: Layout = { nodes: [], edges: [], width: NODE_WIDTH_MIN, height: EMPTY_TREE_HEIGHT };
 
@@ -125,7 +134,7 @@ const OverviewNode: React.FC<{
           <span className="line-clamp-2 break-words text-xs font-semibold leading-tight text-text">
             {node.displayName}
           </span>
-          <span className="mt-0.5 block truncate text-[10px] text-muted">
+          <span className="mt-0.5 block truncate text-[11px] text-muted sm:text-[10px]">
             {isMember ? 'Member' : 'Contact'}{hiddenLabel}{duplicateLabel}
           </span>
         </span>
@@ -187,6 +196,21 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
   onOpenTree,
   onOpenNode,
 }) => {
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [panelWidth, setPanelWidth] = useState(0);
+  /** User zoom over the fit scale. 1 is "fitted"; never scales past 1x. */
+  const [zoom, setZoom] = useState(1);
+
+  // Measured, not assumed: the panel is full-bleed on a phone and sits inside
+  // the page padding on desktop, so the fit scale has to follow the real width.
+  useEffect(() => {
+    const element = scrollerRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setPanelWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   // Every node renders by default; only explicitly folded ids are left out.
   const expandedByTree = useMemo(() => {
     const expanded = new Map<string, Set<string>>();
@@ -252,79 +276,145 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
   const canvasHeight = HEADER_HEIGHT + maxContentHeight;
   const peopleShown = blocks.reduce((total, block) => total + block.layout.nodes.length, 0);
 
+  // Shrink the canvas until every tree fits the panel, but never past the point
+  // where the labels stop reading — past the floor the panel scrolls instead.
+  // `contentRect` is already the padding-excluded inner width.
+  const fitScale = totalWidth > 0 && panelWidth > 0
+    ? clamp(MIN_FIT_SCALE, panelWidth / totalWidth, 1)
+    : 1;
+  // Zoom multiplies the fit scale and changes the layout size, not a transform,
+  // so the panel keeps scrolling natively — which is the only way a phone gets
+  // real momentum. Capped at 1 so nothing is ever scaled up past its own
+  // resolution, which is what makes text look soft.
+  const scale = clamp(MIN_FIT_SCALE, fitScale * zoom, 1);
+  const fitsWithoutScrolling = totalWidth * scale <= panelWidth + 0.5;
+  const canZoomIn = scale < 0.999;
+  const canZoomOut = zoom > 1.001;
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
         <span>
           {trees.length} {trees.length === 1 ? 'tree' : 'trees'} side by side · {peopleShown} {peopleShown === 1 ? 'person' : 'people'} shown
         </span>
-        <span>Scroll sideways to move between trees</span>
+        <span className="hidden sm:inline">
+          {fitsWithoutScrolling
+            ? `Every tree fits at ${Math.round(scale * 100)}%`
+            : 'Scroll sideways to move between trees'}
+        </span>
+        {/* Same zoom controls as the detail chart, but these change the layout
+            size rather than a transform, so the panel keeps its native
+            momentum. Desktop fits to the panel, so they are hidden at sm+. */}
+        <div data-chart-control className="flex items-center gap-1 sm:hidden">
+          <button
+            type="button"
+            className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"
+            onClick={() => setZoom((current) => Math.max(1, current / ZOOM_STEP))}
+            disabled={!canZoomOut}
+            aria-label="Zoom out of the overview"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"
+            onClick={() => setZoom(1)}
+            aria-label="Fit every tree in view"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"
+            onClick={() => setZoom((current) => Math.min(2, current * ZOOM_STEP))}
+            disabled={!canZoomIn}
+            aria-label="Zoom into the overview"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-app-md border border-border bg-surface-muted/40 p-4">
-        <div className="relative mx-auto" style={{ width: totalWidth, height: canvasHeight }}>
-          {blocks.slice(1).map((block) => (
-            <span
-              key={`divider-${block.tree.id}`}
-              aria-hidden="true"
-              className="absolute top-0 w-px bg-border/70"
-              style={{ left: block.left - TREE_GAP / 2, height: canvasHeight }}
-            />
-          ))}
+      <div
+        ref={scrollerRef}
+        className="snap-x snap-proximity overscroll-x-contain overflow-x-auto rounded-app-md border border-border bg-surface-muted/40 p-4"
+      >
+        {/* The outer box is the layout size, so zooming grows it and the native
+            scroller knows how far it can travel. The inner box does the scaling. */}
+        <div
+          className="relative mx-auto"
+          style={{
+            width: totalWidth * scale,
+            height: canvasHeight * scale,
+          }}
+        >
+          <div
+            className="relative origin-top-left"
+            style={{ width: totalWidth, height: canvasHeight, transform: `scale(${scale})` }}
+          >
+            {blocks.slice(1).map((block) => (
+              <span
+                key={`divider-${block.tree.id}`}
+                aria-hidden="true"
+                className="absolute top-0 w-px bg-border/70"
+                style={{ left: block.left - TREE_GAP / 2, height: canvasHeight }}
+              />
+            ))}
 
-          {blocks.map((block) => (
-            <div key={block.tree.id} className="absolute top-0" style={{ left: block.left, width: block.width }}>
-              <TreeHeader block={block} onOpenTree={onOpenTree} />
+            {blocks.map((block) => (
+              <div key={block.tree.id} className="absolute top-0 snap-start" style={{ left: block.left, width: block.width }}>
+                <TreeHeader block={block} onOpenTree={onOpenTree} />
 
-              <div className="relative" style={{ width: block.width, height: maxContentHeight }}>
-                {block.layout.nodes.length === 0 ? (
-                  <div
-                    className="flex items-center justify-center rounded-app-md border border-dashed border-border px-3 text-center text-[11px] text-subtle"
-                    style={{ height: EMPTY_TREE_HEIGHT }}
-                  >
-                    No one placed yet
-                  </div>
-                ) : (
-                  <>
-                    <svg
-                      className="pointer-events-none absolute left-0 top-0"
-                      width={block.width}
-                      height={block.layout.height}
-                      aria-hidden="true"
+                <div className="relative" style={{ width: block.width, height: maxContentHeight }}>
+                  {block.layout.nodes.length === 0 ? (
+                    <div
+                      className="flex items-center justify-center rounded-app-md border border-dashed border-border px-3 text-center text-[11px] text-subtle"
+                      style={{ height: EMPTY_TREE_HEIGHT }}
                     >
-                      {block.layout.edges.map((edge) => {
-                        const midY = edge.parentBottom + V_GAP / 2;
-                        return (
-                          <path
-                            key={edge.id}
-                            d={`M ${edge.parentX} ${edge.parentBottom} L ${edge.parentX} ${midY} L ${edge.childX} ${midY} L ${edge.childX} ${edge.childTop}`}
-                            fill="none"
-                            stroke="var(--color-primary-muted)"
-                            strokeWidth={1.5}
-                            strokeLinecap="round"
-                          />
-                        );
-                      })}
-                    </svg>
+                      No one placed yet
+                    </div>
+                  ) : (
+                    <>
+                      <svg
+                        className="pointer-events-none absolute left-0 top-0"
+                        width={block.width}
+                        height={block.layout.height}
+                        aria-hidden="true"
+                      >
+                        {block.layout.edges.map((edge) => {
+                          const midY = edge.parentBottom + V_GAP / 2;
+                          return (
+                            <path
+                              key={edge.id}
+                              d={`M ${edge.parentX} ${edge.parentBottom} L ${edge.parentX} ${midY} L ${edge.childX} ${midY} L ${edge.childX} ${edge.childTop}`}
+                              fill="none"
+                              stroke="var(--color-primary-muted)"
+                              strokeWidth={1.5}
+                              strokeLinecap="round"
+                            />
+                          );
+                        })}
+                      </svg>
 
-                    {block.layout.nodes.map((positioned) => (
-                      <OverviewNode
-                        key={positioned.id}
-                        positioned={positioned}
-                        treeName={block.tree.name}
-                        nodeWidth={block.nodeWidth}
-                        duplicateTreeCount={duplicateTreeCounts.get(refKeyOf(positioned.node)) ?? 1}
-                        isActive={activeNodeId === positioned.node.id}
-                        isCollapsed={collapsedIds.has(positioned.node.id)}
-                        onOpen={onOpenNode}
-                        onToggleCollapse={onToggleCollapse}
-                      />
-                    ))}
-                  </>
-                )}
+                      {block.layout.nodes.map((positioned) => (
+                        <OverviewNode
+                          key={positioned.id}
+                          positioned={positioned}
+                          treeName={block.tree.name}
+                          nodeWidth={block.nodeWidth}
+                          duplicateTreeCount={duplicateTreeCounts.get(refKeyOf(positioned.node)) ?? 1}
+                          isActive={activeNodeId === positioned.node.id}
+                          isCollapsed={collapsedIds.has(positioned.node.id)}
+                          onOpen={onOpenNode}
+                          onToggleCollapse={onToggleCollapse}
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

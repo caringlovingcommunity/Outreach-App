@@ -8,6 +8,12 @@ export type { TreeMode } from './treeInteractions';
 const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?';
 
+// Each level steps in, but an unbounded step walks a deep tree off a phone
+// screen. Cap the step so rows stay visible however deep the tree goes.
+const INDENT_STEP = 18;
+const MAX_INDENT_DEPTH = 6;
+const indentFor = (depth: number) => Math.min(depth, MAX_INDENT_DEPTH) * INDENT_STEP;
+
 const NodeRow: React.FC<{
   entry: DiscipleshipTreeNode;
   depth: number;
@@ -47,7 +53,7 @@ const NodeRow: React.FC<{
                   : isPlacementTarget ? 'border-primary bg-primary-soft'
                     : 'border-transparent hover:bg-surface-muted'
         }`}
-        style={{ marginLeft: depth * 18 }}
+        style={{ marginLeft: indentFor(depth) }}
         id={`discipleship-node-${node.id}`}
       >
         <button
@@ -77,12 +83,12 @@ const NodeRow: React.FC<{
             <span className="flex items-center gap-1.5">
               <span className="truncate text-sm font-semibold text-text">{node.displayName}</span>
               {!isMember && (
-                <span className="shrink-0 rounded border border-primary-muted bg-primary-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                <span className="shrink-0 rounded border border-primary-muted bg-primary-soft px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary sm:text-[10px]">
                   Contact
                 </span>
               )}
               {isPlacementTarget && mode === 'browse' && (
-                <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">Adding here</span>
+                <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-primary sm:text-[10px]">Adding here</span>
               )}
             </span>
             {hasChildren && (
@@ -124,7 +130,7 @@ const NodeRow: React.FC<{
       </div>
 
       {hasChildren && isExpanded && (
-        <ul className="mt-1 space-y-1 border-l border-border/70" style={{ marginLeft: depth * 18 + 15 }}>
+        <ul className="mt-1 space-y-1 border-l border-border/70" style={{ marginLeft: indentFor(depth) + 15 }}>
           {children.map((child) => (
             <NodeRow key={child.node.id} entry={child} depth={depth + 1} props={props} />
           ))}

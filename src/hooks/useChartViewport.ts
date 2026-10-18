@@ -1,0 +1,324 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, RefObject } from 'react';
+
+const MIN_SCALE = 0.4;
+const MAX_SCALE = 2.5;
+const ZOOM_STEP = 1.25;
+/** Finger travel past this counts as a pan, not a tap on the card underneath. */
+const TAP_SLOP = 6;
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Size {
+  width: number;
+  height: number;
+}
+
+export interface ChartViewport {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+const clampNumber = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const distanceBetween = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+
+const centerBetween = (a: Point, b: Point): Point => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+});
+
+/**
+ * `mx-auto` already centres a canvas narrower than the frame, so its box starts
+ * this far from the frame's left/top edge. The transform grows from the box's
+ * top-left corner, so every clamp has to subtract that shift.
+ */
+const offsetFor = (frameSize: number, contentSize: number) =>
+  Math.max(0, (frameSize - contentSize) / 2);
+
+const clampAxis = (value: number, frameSize: number, contentSize: number, scale: number) => {
+  const offset = offsetFor(frameSize, contentSize);
+  const scaled = contentSize * scale;
+  if (scaled <= frameSize) return (frameSize - scaled) / 2 - offset;
+  return clampNumber(value, frameSize - scaled - offset, -offset);
+};
+
+/** Keeps the canvas inside the frame: centred where it fits, bounded where it overflows. */
+const clampViewport = (viewport: ChartViewport, frame: Size, content: Size): ChartViewport => ({
+  scale: viewport.scale,
+  x: clampAxis(viewport.x, frame.width, content.width, viewport.scale),
+  y: clampAxis(viewport.y, frame.height, content.height, viewport.scale),
+});
+
+interface PinchStart {
+  viewport: ChartViewport;
+  mid: Point;
+  distance: number;
+  /** Frame origin in client coordinates, captured at gesture start. */
+  origin: Point;
+}
+
+export interface UseChartViewportResult {
+  frameRef: RefObject<HTMLDivElement | null>;
+  scale: number;
+  transform: string;
+  /** `pan-y` lets the page scroll when the chart has nothing to pan vertically. */
+  touchAction: CSSProperties['touchAction'];
+  canZoomIn: boolean;
+  canZoomOut: boolean;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  fit: () => void;
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  /** Swallows the click a pan would otherwise leave behind on a card. */
+  onClickCapture: (event: ReactMouseEvent<HTMLDivElement>) => void;
+}
+
+/**
+ * Pan and zoom for a canvas that is wider than the frame it lives in.
+ *
+ * Phones turn the chart into a fixed 19.5:9 viewport and drive it by touch —
+ * one finger pans, two pinch about their midpoint — so gestures zoom the chart
+ * instead of the page. Nothing here measures breakpoints: `src/index.css` turns
+ * the transform off at `sm+`, where the native scroller takes over again.
+ */
+export const useChartViewport = (
+  rawContent: Size,
+  /** Content x to centre on the opening view, e.g. the tree's top-level node. */
+  anchorX?: number,
+): UseChartViewportResult => {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [frame, setFrame] = useState<Size>({ width: 0, height: 0 });
+  const [viewport, setViewport] = useState<ChartViewport>({ scale: 1, x: 0, y: 0 });
+
+  // Handlers read the live viewport from a ref so panning never lags a frame.
+  const viewportRef = useRef(viewport);
+  const pointers = useRef(new Map<number, Point>());
+  const panStart = useRef<Point | null>(null);
+  const pinchStart = useRef<PinchStart | null>(null);
+  /** Once the viewer drives the viewport themselves, re-seating stops. */
+  const touched = useRef(false);
+  /** Set when a gesture travelled far enough that its click is not a tap. */
+  const dragEnd = useRef(false);
+
+  // Callers pass a `{ width, height }` literal, a new object every render. Key
+  // the memo off the numbers so the effects below don't re-run on identity.
+  const { width: rawWidth, height: rawHeight } = rawContent;
+  const content = useMemo(
+    () => ({ width: rawWidth, height: rawHeight }),
+    [rawWidth, rawHeight],
+  );
+
+  const offset = useMemo(
+    () => ({ x: offsetFor(frame.width, content.width), y: offsetFor(frame.height, content.height) }),
+    [frame.width, content, frame.height],
+  );
+
+  const applyViewport = useCallback(
+    (updater: (previous: ChartViewport) => ChartViewport) => {
+      const next = updater(viewportRef.current);
+      viewportRef.current = next;
+      setViewport(next);
+    },
+    [],
+  );
+
+  // Measured rather than assumed: the frame is 19.5:9 on a phone but auto-height
+  // on desktop, and it changes with rotation and the bottom bar.
+  useEffect(() => {
+    const element = frameRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setFrame({ width, height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // Re-seat the canvas whenever the frame or the tree changes size. Until the
+  // viewer pans or zooms, the opening view is the tree's anchor line at 1:1 —
+  // a 1300px-wide canvas otherwise opens on an empty corner of itself.
+  useEffect(() => {
+    if (!frame.width || !frame.height) return;
+    applyViewport((previous) => clampViewport(
+      touched.current
+        ? previous
+        : {
+          scale: previous.scale,
+          x: anchorX === undefined ? previous.x : frame.width / 2 - offset.x - anchorX * previous.scale,
+          y: 0,
+        },
+      frame,
+      content,
+    ));
+  }, [applyViewport, frame, content, offset, anchorX]);
+
+  const zoomAt = useCallback(
+    (focus: Point, factor: number) => {
+      touched.current = true;
+      applyViewport((previous) => {
+        const scale = clampNumber(previous.scale * factor, MIN_SCALE, MAX_SCALE);
+        const underX = (focus.x - offset.x - previous.x) / previous.scale;
+        const underY = (focus.y - offset.y - previous.y) / previous.scale;
+        return clampViewport(
+          {
+            scale,
+            x: focus.x - offset.x - underX * scale,
+            y: focus.y - offset.y - underY * scale,
+          },
+          frame,
+          content,
+        );
+      });
+    },
+    [applyViewport, offset, frame, content],
+  );
+
+  const zoomIn = useCallback(
+    () => zoomAt({ x: frame.width / 2, y: frame.height / 2 }, ZOOM_STEP),
+    [zoomAt, frame.width, frame.height],
+  );
+
+  const zoomOut = useCallback(
+    () => zoomAt({ x: frame.width / 2, y: frame.height / 2 }, 1 / ZOOM_STEP),
+    [zoomAt, frame.width, frame.height],
+  );
+
+  const fit = useCallback(() => {
+    touched.current = true;
+    applyViewport(() => clampViewport(
+      {
+        scale: clampNumber(frame.width / content.width, MIN_SCALE, 1),
+        x: 0,
+        y: 0,
+      },
+      frame,
+      content,
+    ));
+  }, [applyViewport, frame, content]);
+
+  // Trackpad pinch arrives as ctrl/⌘+wheel. React registers wheel passively, so
+  // this needs a native non-passive listener to be able to preventDefault.
+  useEffect(() => {
+    const element = frameRef.current;
+    if (!element) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const rect = element.getBoundingClientRect();
+      zoomAt({ x: event.clientX - rect.left, y: event.clientY - rect.top },
+        event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
+    };
+    element.addEventListener('wheel', onWheel, { passive: false });
+    return () => element.removeEventListener('wheel', onWheel);
+  }, [zoomAt]);
+
+  const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    // Desktop keeps the native scroller, and its clicks must reach the cards.
+    if (event.pointerType === 'mouse') return;
+    if ((event.target as HTMLElement).closest('[data-chart-control]')) return;
+    touched.current = true;
+    const frameRect = frameRef.current?.getBoundingClientRect();
+    if (!frameRect) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pointers.current.size >= 2) {
+      const [first, second] = [...pointers.current.values()];
+      pinchStart.current = {
+        viewport: viewportRef.current,
+        mid: centerBetween(first, second),
+        distance: distanceBetween(first, second),
+        origin: { x: frameRect.left, y: frameRect.top },
+      };
+      return;
+    }
+    panStart.current = { x: event.clientX, y: event.clientY };
+  }, []);
+
+  const onPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const active = [...pointers.current.values()];
+
+    if (active.length >= 2) {
+      const start = pinchStart.current;
+      if (!start) return;
+      const mid = centerBetween(active[0], active[1]);
+      const ratio = start.distance > 0 ? distanceBetween(active[0], active[1]) / start.distance : 1;
+      const scale = clampNumber(start.viewport.scale * ratio, MIN_SCALE, MAX_SCALE);
+      if (Math.hypot(mid.x - start.mid.x, mid.y - start.mid.y) > TAP_SLOP) dragEnd.current = true;
+      // Keep the content point that sat under the initial midpoint under the
+      // current midpoint, which pans and zooms in one step.
+      const anchorX = (start.mid.x - start.origin.x - offset.x - start.viewport.x) / start.viewport.scale;
+      const anchorY = (start.mid.y - start.origin.y - offset.y - start.viewport.y) / start.viewport.scale;
+      applyViewport(() => clampViewport(
+        {
+          scale,
+          x: mid.x - start.origin.x - offset.x - anchorX * scale,
+          y: mid.y - start.origin.y - offset.y - anchorY * scale,
+        },
+        frame,
+        content,
+      ));
+      return;
+    }
+
+    const start = panStart.current;
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    panStart.current = { x: event.clientX, y: event.clientY };
+    if (Math.hypot(dx, dy) > TAP_SLOP) dragEnd.current = true;
+    applyViewport((previous) => clampViewport(
+      { scale: previous.scale, x: previous.x + dx, y: previous.y + dy },
+      frame,
+      content,
+    ));
+  }, [applyViewport, offset, frame, content]);
+
+  const onPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.delete(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (pointers.current.size < 2) pinchStart.current = null;
+    if (pointers.current.size === 0) panStart.current = null;
+  }, []);
+
+  // The browser fires click after a touch drag too. A card is only ~200px wide
+  // inside a 170px frame, so without this, panning opens profile drawers.
+  const onClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!dragEnd.current) return;
+    dragEnd.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
+  return {
+    frameRef,
+    scale: viewport.scale,
+    transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.scale})`,
+    // Nothing to pan vertically means the swipe belongs to the page.
+    touchAction: frame.height > 0 && content.height * viewport.scale <= frame.height ? 'pan-y' : 'none',
+    canZoomIn: viewport.scale < MAX_SCALE - 0.001,
+    canZoomOut: viewport.scale > MIN_SCALE + 0.001,
+    zoomIn,
+    zoomOut,
+    fit,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onClickCapture,
+  };
+};

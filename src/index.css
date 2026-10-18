@@ -51,11 +51,18 @@
 	--shadow-sm: 0 1px 3px rgb(31 41 55 / 0.08);
 	--shadow-md: 0 5px 16px rgb(31 41 55 / 0.1);
 	--shadow-lg: 0 16px 36px rgb(31 41 55 / 0.16);
+	/* Measured at runtime by the dashboard header; this is the mobile fallback. */
+	--app-header-height: 6.5rem;
 }
 
 @layer base {
 	html {
 		background: var(--color-background);
+		/* Page zoom is off so the mobile layout can't be scaled out from under
+		   the app. Scrolling still works; the chart panels opt back into pinch
+		   with their own `touch-action: none`. This is the WCAG 1.4.4 trade-off —
+		   drop this and the viewport meta's user-scalable to restore page zoom. */
+		touch-action: pan-x pan-y;
 	}
 
 	body {
@@ -170,8 +177,30 @@
 		overflow: hidden;
 	}
 
+	/* The discipleship picker renders one instance for both layouts; only the
+	   phone presentation is an overlay, so lock page scroll on phones alone. */
+	@media (max-width: 639.98px) {
+		body:has(.app-sheet-backdrop) {
+			overflow: hidden;
+		}
+	}
+
 	.app-modal {
 		@apply flex w-full max-w-md flex-col rounded-t-app-lg border border-border bg-surface p-5 shadow-app-lg sm:rounded-app-lg;
+	}
+
+	/* The tree chart pans and zooms with a transform below sm, inside a 19.5:9
+	   frame. Above it the native scroller takes over, so both the transform and
+	   the captured touch gestures are switched off here. `!important` outranks
+	   the inline styles React sets on the frame and canvas. */
+	@media (min-width: 640px) {
+		.app-chart-frame {
+			touch-action: auto !important;
+		}
+
+		.app-chart-canvas {
+			transform: none !important;
+		}
 	}
 
 	.login-landing { overflow: hidden; background: #f8fafb; }

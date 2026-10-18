@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ClipboardCheck, Handshake, Home, Network, PartyPopper, Settings, Shield, UserCircle, Users } from 'lucide-react';
 import { SemesterManagerModal } from './SemesterManagerModal';
 import { TopNav, BottomNav } from './NavigationBar';
@@ -43,10 +43,27 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
+
+  // Publish the sticky header's real height so page content (the discipleship
+  // action bars) can pin directly beneath it. The header grows at sm+ when the
+  // desktop tab strip appears, so this has to be measured, not assumed.
+  useEffect(() => {
+    const element = headerRef.current;
+    if (!element) return;
+    const sync = () => {
+      const height = element.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--app-header-height', `${height}px`);
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -61,7 +78,7 @@ export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, lo
 
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <header className="app-header" ref={headerRef}>
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-20 w-35 items-center justify-center overflow-hidden rounded-lg">

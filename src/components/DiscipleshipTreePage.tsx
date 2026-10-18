@@ -52,7 +52,7 @@ const RootsPreview: React.FC<{ stats?: TreeOverviewStats; onOpen: (nodeId: strin
         >
           <span className="truncate max-w-[160px]">{root.displayName}</span>
           {root.nodeType !== 'user' && (
-            <span className="shrink-0 rounded border border-primary-muted bg-primary-soft px-1 py-0.5 text-[9px] uppercase tracking-wide text-primary">
+            <span className="shrink-0 rounded border border-primary-muted bg-primary-soft px-1 py-0.5 text-[10px] uppercase tracking-wide text-primary sm:text-[9px]">
               Contact
             </span>
           )}
@@ -101,6 +101,8 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   const [profileNode, setProfileNode] = useState<DiscipleshipNode | null>(null);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [focusTimer, setFocusTimer] = useState<number | null>(null);
+  /** Phone-only bottom sheet holding the picker; sm+ always shows the aside. */
+  const [showPicker, setShowPicker] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTreeName, setNewTreeName] = useState('');
@@ -124,6 +126,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     setMovingNodeId(null);
     setPlacementTargetId(null);
     setFocusNodeId(null);
+    setShowPicker(false);
     if (focusTimer !== null) {
       window.clearTimeout(focusTimer);
       setFocusTimer(null);
@@ -245,7 +248,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
 
   const handleAddCandidate = async (candidate: TreeCandidate) => {
     if (!selectedTreeId) return;
-    await runAction(
+    const added = await runAction(
       () => addNode(
         {
           treeId: selectedTreeId,
@@ -261,6 +264,11 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       ),
       'Unable to add this person to the tree.',
     );
+    // Phones: get the sheet out of the way once the person is placed. The target
+    // stays armed, so "Add someone" reopens it to place the next person under the
+    // same parent. On a failed placement the sheet stays open to retry. On sm+ the
+    // aside is always visible, so this only resets the phone state.
+    if (added) setShowPicker(false);
   };
 
   const handleSelectParent = async (parentId: string | null) => {
@@ -287,6 +295,35 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
 
   const placementTargetName = placementTargetId ? nodeById.get(placementTargetId)?.displayName ?? null : null;
 
+  /**
+   * The move/placement instruction. Phones need it pinned under the header while
+   * panning the tree; sm+ gets it in flow, so both call this one source.
+   */
+  const renderActionBanner = () => {
+    if (movingNode) {
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-app-md border border-primary bg-primary-soft px-3 py-2 text-sm text-primary">
+          <span className="font-semibold">Moving {movingNode.displayName} — tap a new discipler, or make them a root.</span>
+          <span className="flex items-center gap-2">
+            <button type="button" className="app-button-secondary min-h-11 px-3 py-1.5 text-xs sm:min-h-9" onClick={() => void handleSelectParent(null)} disabled={busy}>Make root</button>
+            <button type="button" className="app-button-text min-h-11 px-2 py-1.5 text-xs sm:min-h-9" onClick={() => setMovingNodeId(null)} disabled={busy}>Cancel</button>
+          </span>
+        </div>
+      );
+    }
+    if (placementTargetName) {
+      return (
+        <div className="flex items-center justify-between gap-2 rounded-app-md border border-primary-muted bg-primary-soft px-3 py-2 text-sm text-primary">
+          <span className="font-semibold">Adding someone under {placementTargetName}</span>
+          <button type="button" className="app-icon-button size-9 sm:size-7" onClick={() => setPlacementTargetId(null)} aria-label="Stop adding under this node">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const treeViewProps: DiscipleshipTreeViewProps = {
     forest,
     expandedIds,
@@ -304,6 +341,9 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       setMovingNodeId(null);
       setFocusNodeId(null);
       setPlacementTargetId(node.id);
+      // Phones open the picker sheet so the target and the list are on screen
+      // together; on sm+ this is a no-op because the aside is always visible.
+      setShowPicker(true);
     },
     onRemove: (node) => setRemovingNode(node),
     onOpenProfile: (node) => setProfileNode(node),
@@ -322,13 +362,13 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <h2 className="text-lg font-bold text-text">Your trees</h2>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-app-md border border-border bg-surface-muted p-0.5" role="group" aria-label="Overview layout">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="inline-flex w-full rounded-app-md border border-border bg-surface-muted p-0.5 sm:w-auto" role="group" aria-label="Overview layout">
               <button
                 type="button"
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
                 onClick={() => setOverviewView('map')}
                 aria-pressed={overviewView === 'map'}
               >
@@ -337,7 +377,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
               </button>
               <button
                 type="button"
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
                 onClick={() => setOverviewView('cards')}
                 aria-pressed={overviewView === 'cards'}
               >
@@ -345,7 +385,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
                 Cards
               </button>
             </div>
-            <button type="button" className="app-button-primary" onClick={() => setShowCreate((open) => !open)}>
+            <button type="button" className="app-button-primary w-full sm:w-auto" onClick={() => setShowCreate((open) => !open)}>
               <Plus className="h-4 w-4" />
               New tree
             </button>
@@ -470,22 +510,29 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
         </div>
       </div>
 
-      {movingNode ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-app-md border border-primary bg-primary-soft px-3 py-2 text-sm text-primary">
-          <span className="font-semibold">Moving {movingNode.displayName} — tap a new discipler, or make them a root.</span>
-          <span className="flex items-center gap-2">
-            <button type="button" className="app-button-secondary min-h-11 px-3 py-1.5 text-xs sm:min-h-9" onClick={() => void handleSelectParent(null)} disabled={busy}>Make root</button>
-            <button type="button" className="app-button-text min-h-11 px-2 py-1.5 text-xs sm:min-h-9" onClick={() => setMovingNodeId(null)} disabled={busy}>Cancel</button>
-          </span>
-        </div>
-      ) : placementTargetName ? (
-        <div className="flex items-center justify-between gap-2 rounded-app-md border border-primary-muted bg-primary-soft px-3 py-2 text-sm text-primary">
-          <span className="font-semibold">Adding someone under {placementTargetName}</span>
-          <button type="button" className="app-icon-button size-9 sm:size-7" onClick={() => setPlacementTargetId(null)} aria-label="Stop adding under this node">
-            <X className="h-3.5 w-3.5" />
+      {/* Phones: pinned beneath the measured header so the instruction stays put
+          while panning; also carries the trigger for the add-people sheet. */}
+      <div className="sticky top-[var(--app-header-height)] z-20 space-y-2 bg-background sm:hidden">
+        {renderActionBanner()}
+
+        {!movingNode && (
+          <button
+            type="button"
+            className="app-button-primary w-full"
+            onClick={() => setShowPicker(true)}
+            disabled={busy}
+          >
+            <Plus className="h-4 w-4" />
+            Add someone
           </button>
-        </div>
-      ) : null}
+        )}
+      </div>
+
+      {/* sm+: the banner keeps its original in-flow slot, and collapses entirely
+          when there is nothing to announce, so desktop spacing is unchanged. */}
+      {(movingNode || placementTargetName) && (
+        <div className="hidden sm:block">{renderActionBanner()}</div>
+      )}
 
       {actionError && <p className="app-alert-error" role="alert">{actionError}</p>}
       {error && (
@@ -497,22 +544,22 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
 
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
         <div className="app-panel space-y-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <h2 className="text-sm font-bold text-text">Tree</h2>
-              <div className="inline-flex rounded-app-md border border-border bg-surface-muted p-0.5" role="group" aria-label="Tree layout">
-                <button type="button" className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${view === 'chart' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('chart')} aria-pressed={view === 'chart'}>
+              <div className="inline-flex w-full rounded-app-md border border-border bg-surface-muted p-0.5 sm:w-auto" role="group" aria-label="Tree layout">
+                <button type="button" className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${view === 'chart' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('chart')} aria-pressed={view === 'chart'}>
                   <Network className="h-3.5 w-3.5" />
                   Chart
                 </button>
-                <button type="button" className={`inline-flex min-h-11 items-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 ${view === 'list' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('list')} aria-pressed={view === 'list'}>
+                <button type="button" className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${view === 'list' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`} onClick={() => setView('list')} aria-pressed={view === 'list'}>
                   <ListTree className="h-3.5 w-3.5" />
                   List
                 </button>
               </div>
             </div>
-            {view === 'list' && placementTargetId === null && <span className="text-xs text-muted">Tip: use ＋ to add someone under a person</span>}
-            {view === 'chart' && <span className="text-xs text-muted">Scroll sideways to explore the branches</span>}
+            {view === 'list' && placementTargetId === null && <span className="hidden text-xs text-muted sm:inline">Tip: use ＋ to add someone under a person</span>}
+            {view === 'chart' && <span className="hidden text-xs text-muted sm:inline">Scroll sideways to explore the branches</span>}
           </div>
 
           {nodesLoading ? (
@@ -538,6 +585,8 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
           onAdd={(candidate) => void handleAddCandidate(candidate)}
           onClearTarget={() => setPlacementTargetId(null)}
           busy={busy}
+          open={showPicker}
+          onClose={() => setShowPicker(false)}
         />
       </div>
 
