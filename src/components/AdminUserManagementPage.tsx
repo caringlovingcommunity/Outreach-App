@@ -1,5 +1,4 @@
 import React from 'react';
-import { Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { deleteUserProfiles, getAllUsers, getUserFullDetail, updateUserRole } from '../services/organizerService';
 import type { UserProfile } from '../types';
@@ -69,7 +68,6 @@ export const AdminUserManagementPage: React.FC<AdminUserManagementPageProps> = (
     <section className="mx-auto max-w-5xl space-y-6 pb-6">
       <div className="-mx-4 -mt-6 bg-primary px-4 py-7 text-white sm:-mx-6 sm:-mt-8 sm:px-8">
         <div className="flex items-center gap-3">
-          <Shield className="h-7 w-7" aria-hidden="true" />
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl">User Management</h1>
             <p className="mt-2 text-sm text-white/85 sm:text-base">

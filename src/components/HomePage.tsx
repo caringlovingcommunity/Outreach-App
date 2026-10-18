@@ -127,7 +127,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <div className="mt-5 grid grid-cols-4 border-b border-border" role="tablist" aria-label="Home strategy stages">
                 {strategyKeys.map((key) => <button key={key} type="button" role="tab" aria-selected={activeStrategy === key} onClick={() => selectStrategy(key)} className={`min-h-11 border-b-2 px-2 text-xs font-semibold transition-colors ${activeStrategy === key ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-text'}`}>{strategies[key].label}</button>)}
               </div>
-              <div ref={strategyTrackRef} onScroll={handleStrategyScroll} className="home-strategy-track mt-5 touch-pan-x" aria-label="Swipe through strategies">
+              <div ref={strategyTrackRef} onScroll={handleStrategyScroll} className="home-strategy-track mt-5" aria-label="Swipe through strategies">
                 {strategyKeys.map((key, index) => {
                   const strategy = strategies[key];
                   return <article key={key} className="home-strategy-panel grid gap-5 sm:grid-cols-[10rem_1fr] sm:items-start" role="tabpanel" aria-label={`${strategy.label}, stage ${index + 1}`}>
