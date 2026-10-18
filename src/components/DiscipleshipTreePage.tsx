@@ -9,7 +9,7 @@ import type { DiscipleshipTreeViewProps } from './discipleship/treeInteractions'
 import { UnplacedPanel } from './discipleship/UnplacedPanel';
 import { RemoveNodeDialog } from './discipleship/RemoveNodeDialog';
 import { NodeProfileDrawer } from './discipleship/NodeProfileDrawer';
-import type { DiscipleshipNode, DiscipleshipTree } from '../types/discipleship';
+import type { DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../types/discipleship';
 import type { UserProfile } from '../types';
 
 interface DiscipleshipTreePageProps {
@@ -18,6 +18,24 @@ interface DiscipleshipTreePageProps {
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
+
+/** Every node id in a forest (or one subtree of it), used to prune map folds. */
+const collectNodeIds = (forest: DiscipleshipTreeNode[], into: Set<string> = new Set()): Set<string> => {
+  forest.forEach((entry) => {
+    into.add(entry.node.id);
+    collectNodeIds(entry.children, into);
+  });
+  return into;
+};
+
+const findSubtree = (forest: DiscipleshipTreeNode[], nodeId: string): DiscipleshipTreeNode | null => {
+  for (const entry of forest) {
+    if (entry.node.id === nodeId) return entry;
+    const found = findSubtree(entry.children, nodeId);
+    if (found) return found;
+  }
+  return null;
+};
 
 const RootsPreview: React.FC<{ stats?: TreeOverviewStats; onOpen: (nodeId: string) => void }> = ({ stats, onOpen }) => {
   if (!stats) return null;
@@ -161,6 +179,22 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     });
   };
 
+  /**
+   * Drops folds for nodes that no longer exist. Called from the handlers that
+   * remove placements, so the map's fold Set can't accumulate ids for deleted
+   * trees or removed subtrees as the data changes.
+   */
+  const pruneMapCollapsed = (removedIds: Set<string>) => {
+    if (removedIds.size === 0) return;
+    setMapCollapsedIds((previous) => {
+      const next = new Set<string>();
+      previous.forEach((id) => {
+        if (!removedIds.has(id)) next.add(id);
+      });
+      return next.size === previous.size ? previous : next;
+    });
+  };
+
   const canDropOn = (target: DiscipleshipNode) => {
     if (!movingNode) return false;
     if (target.id === movingNode.id) return false;
@@ -205,7 +239,8 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       `Delete "${tree.name}" and all of its placement data?\n\nMember and contact records are not deleted — only this tree layout.`,
     );
     if (!confirmed) return;
-    await runAction(() => deleteTree(tree.id), 'Unable to delete this tree.');
+    const deleted = await runAction(() => deleteTree(tree.id), 'Unable to delete this tree.');
+    if (deleted) pruneMapCollapsed(collectNodeIds(forestByTree.get(tree.id) ?? []));
   };
 
   const handleAddCandidate = async (candidate: TreeCandidate) => {
@@ -243,7 +278,11 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       () => removeNodeWithChildren(selectedTreeId, removingNode.id),
       'Unable to remove this node.',
     );
-    if (removed) setRemovingNode(null);
+    if (removed) {
+      const subtree = findSubtree(forest, removingNode.id);
+      pruneMapCollapsed(collectNodeIds(subtree ? [subtree] : []));
+      setRemovingNode(null);
+    }
   };
 
   const placementTargetName = placementTargetId ? nodeById.get(placementTargetId)?.displayName ?? null : null;
