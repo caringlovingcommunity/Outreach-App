@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import type { DiscipleshipNode } from '../../types/discipleship';
 
@@ -45,7 +46,7 @@ export const RemoveNodeDialog: React.FC<RemoveNodeDialogProps> = ({
     return `${childNames.join(', ')} will become root node${children.length === 1 ? '' : 's'} at the top of the tree.`;
   })();
 
-  return (
+  return createPortal(
     <div className="app-modal-backdrop" onClick={onCancel} role="presentation">
       <div
         className="app-modal mx-auto mt-auto max-h-[85vh] w-full max-w-lg space-y-4 overflow-y-auto sm:mt-0"
@@ -113,6 +114,7 @@ export const RemoveNodeDialog: React.FC<RemoveNodeDialogProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

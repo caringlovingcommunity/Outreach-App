@@ -8,11 +8,7 @@ export type { TreeMode } from './treeInteractions';
 const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?';
 
-// Each level steps in, but an unbounded step walks a deep tree off a phone
-// screen. Cap the step so rows stay visible however deep the tree goes.
-const INDENT_STEP = 18;
 const MAX_INDENT_DEPTH = 6;
-const indentFor = (depth: number) => Math.min(depth, MAX_INDENT_DEPTH) * INDENT_STEP;
 
 const NodeRow: React.FC<{
   entry: DiscipleshipTreeNode;
@@ -45,7 +41,7 @@ const NodeRow: React.FC<{
   return (
     <li>
       <div
-        className={`group flex items-center gap-2 rounded-app-md border px-2 py-2 transition-colors ${
+        className={`group flex min-w-0 items-center gap-1 rounded-app-md border px-2 py-2 transition-colors sm:gap-2 ${
           isFocused ? 'ring-2 ring-primary ring-offset-2'
             : isMoving ? 'border-primary bg-primary-soft'
               : isDropDisabled ? 'cursor-not-allowed border-transparent opacity-40'
@@ -53,7 +49,6 @@ const NodeRow: React.FC<{
                   : isPlacementTarget ? 'border-primary bg-primary-soft'
                     : 'border-transparent hover:bg-surface-muted'
         }`}
-        style={{ marginLeft: indentFor(depth) }}
         id={`discipleship-node-${node.id}`}
       >
         <button
@@ -100,10 +95,10 @@ const NodeRow: React.FC<{
         </button>
 
         {mode === 'browse' && (
-          <span className="flex shrink-0 items-center">
+          <span className="grid w-[6.75rem] shrink-0 grid-cols-3 items-center sm:w-[8.25rem]">
             <button
               type="button"
-              className="app-icon-button size-9"
+              className="app-icon-button size-9 justify-self-center sm:size-11"
               title={`Add someone under ${node.displayName}`}
               onClick={() => onAddChild(node)}
             >
@@ -111,7 +106,7 @@ const NodeRow: React.FC<{
             </button>
             <button
               type="button"
-              className="app-icon-button size-9"
+              className="app-icon-button size-9 justify-self-center sm:size-11"
               title={`Move ${node.displayName}`}
               onClick={() => onStartMove(node)}
             >
@@ -119,7 +114,7 @@ const NodeRow: React.FC<{
             </button>
             <button
               type="button"
-              className="app-icon-button size-9 hover:text-error"
+              className="app-icon-button size-9 justify-self-center hover:text-error sm:size-11"
               title={`Remove ${node.displayName} from the tree`}
               onClick={() => onRemove(node)}
             >
@@ -130,7 +125,7 @@ const NodeRow: React.FC<{
       </div>
 
       {hasChildren && isExpanded && (
-        <ul className="mt-1 space-y-1 border-l border-border/70" style={{ marginLeft: indentFor(depth) + 15 }}>
+        <ul className={`${depth < MAX_INDENT_DEPTH ? 'ml-2 sm:ml-4' : 'ml-0'} mt-1 space-y-1 border-l border-border/70`}>
           {children.map((child) => (
             <NodeRow key={child.node.id} entry={child} depth={depth + 1} props={props} />
           ))}

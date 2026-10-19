@@ -74,11 +74,26 @@ export interface UseChartViewportResult {
   zoomIn: () => void;
   zoomOut: () => void;
   fit: () => void;
+  /** Centres the viewport on a point in content coordinates, e.g. a node. */
+  centerOn: (contentX: number, contentY: number) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
   /** Swallows the click a pan would otherwise leave behind on a card. */
   onClickCapture: (event: ReactMouseEvent<HTMLDivElement>) => void;
+}
+
+export interface UseChartViewportOptions {
+  /** Content x to centre on the opening view, e.g. the tree's top-level node. */
+  anchorX?: number;
+  /** Fit the opening view to the canvas width. */
+  fitWidth?: boolean;
+  /**
+   * Seat the opening view by fitting the canvas height to the frame instead of
+   * the default 1:1. The full-screen sheet is tall enough that a whole branch
+   * reads at once, where the 19.5:9 preview only wants a feel of the tree.
+   */
+  fitHeight?: boolean;
 }
 
 /**
@@ -91,8 +106,7 @@ export interface UseChartViewportResult {
  */
 export const useChartViewport = (
   rawContent: Size,
-  /** Content x to centre on the opening view, e.g. the tree's top-level node. */
-  anchorX?: number,
+  { anchorX, fitWidth = false, fitHeight = false }: UseChartViewportOptions = {},
 ): UseChartViewportResult => {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [frame, setFrame] = useState<Size>({ width: 0, height: 0 });
@@ -143,23 +157,28 @@ export const useChartViewport = (
     return () => observer.disconnect();
   }, []);
 
-  // Re-seat the canvas whenever the frame or the tree changes size. Until the
-  // viewer pans or zooms, the opening view is the tree's anchor line at 1:1 —
-  // a 1300px-wide canvas otherwise opens on an empty corner of itself.
+  // Re-seat the canvas whenever the frame or the tree changes size until the
+  // viewer pans or zooms.
   useEffect(() => {
     if (!frame.width || !frame.height) return;
-    applyViewport((previous) => clampViewport(
-      touched.current
-        ? previous
-        : {
-          scale: previous.scale,
-          x: anchorX === undefined ? previous.x : frame.width / 2 - offset.x - anchorX * previous.scale,
+    applyViewport((previous) => {
+      if (touched.current) return clampViewport(previous, frame, content);
+      const scale = fitWidth
+        ? clampNumber(frame.width / content.width, MIN_SCALE, 1)
+        : fitHeight
+          ? clampNumber(frame.height / content.height, MIN_SCALE, 1)
+          : previous.scale;
+      return clampViewport(
+        {
+          scale,
+          x: anchorX === undefined ? previous.x : frame.width / 2 - offset.x - anchorX * scale,
           y: 0,
         },
-      frame,
-      content,
-    ));
-  }, [applyViewport, frame, content, offset, anchorX]);
+        frame,
+        content,
+      );
+    });
+  }, [applyViewport, frame, content, offset, anchorX, fitWidth, fitHeight]);
 
   const zoomAt = useCallback(
     (focus: Point, factor: number) => {
@@ -197,13 +216,30 @@ export const useChartViewport = (
     applyViewport(() => clampViewport(
       {
         scale: clampNumber(frame.width / content.width, MIN_SCALE, 1),
-        x: 0,
+        x: anchorX === undefined
+          ? 0
+          : frame.width / 2 - offset.x - anchorX * clampNumber(frame.width / content.width, MIN_SCALE, 1),
         y: 0,
       },
       frame,
       content,
     ));
-  }, [applyViewport, frame, content]);
+  }, [applyViewport, frame, content, offset, anchorX]);
+
+  // Seats a chosen node under the centre of the frame — the same maths the
+  // opening seat uses, but driven by the viewer rather than the anchor.
+  const centerOn = useCallback((contentX: number, contentY: number) => {
+    touched.current = true;
+    applyViewport((previous) => clampViewport(
+      {
+        scale: previous.scale,
+        x: frame.width / 2 - offset.x - contentX * previous.scale,
+        y: frame.height / 2 - offset.y - contentY * previous.scale,
+      },
+      frame,
+      content,
+    ));
+  }, [applyViewport, offset, frame, content]);
 
   // Trackpad pinch arrives as ctrl/⌘+wheel. React registers wheel passively, so
   // this needs a native non-passive listener to be able to preventDefault.
@@ -316,6 +352,7 @@ export const useChartViewport = (
     zoomIn,
     zoomOut,
     fit,
+    centerOn,
     onPointerDown,
     onPointerMove,
     onPointerUp,

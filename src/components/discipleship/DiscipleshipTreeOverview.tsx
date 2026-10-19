@@ -211,6 +211,14 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
     return () => observer.disconnect();
   }, []);
 
+  // Clean up the module-level nameWidthCache on unmount to prevent memory leaks
+  // in long-running sessions where trees are switched frequently.
+  useEffect(() => {
+    return () => {
+      nameWidthCache.clear();
+    };
+  }, []);
+
   // Every node renders by default; only explicitly folded ids are left out.
   const expandedByTree = useMemo(() => {
     const expanded = new Map<string, Set<string>>();

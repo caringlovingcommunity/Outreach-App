@@ -3,22 +3,27 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  startAfter,
   updateDoc,
   where,
   writeBatch,
   runTransaction,
 } from 'firebase/firestore';
-import type { DocumentSnapshot, Transaction } from 'firebase/firestore';
+import type { DocumentSnapshot, QueryDocumentSnapshot, Transaction } from 'firebase/firestore';
 import { db } from './firebase';
 import type { CreateTreeInput, AddNodeInput, DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../types/discipleship';
 
 const treesCollection = collection(db, 'discipleshipTrees');
 const nodesCollection = collection(db, 'discipleshipNodes');
+const usersPublicCollection = collection(db, 'users_public');
+const contactsCollection = collection(db, 'contacts');
 
 /**
  * Firestore hard limit per batch/transaction. Removals touching more than
@@ -33,6 +38,57 @@ export const discipleshipNodeId = (treeId: string, nodeType: 'user' | 'contact',
 const isPathPrefix = (prefix: string[], path: string[]): boolean =>
   prefix.length <= path.length && prefix.every((id, index) => path[index] === id);
 
+/**
+ * Validates that a node's path array is consistent with its parentId and depth.
+ * Returns a corrected node if fixable, null if corruption is detected.
+ */
+const validateAndRepairPath = (node: DiscipleshipNode, allNodes: Map<string, DiscipleshipNode>): DiscipleshipNode | null => {
+  const expectedDepth = node.path.length - 1;
+  if (node.depth !== expectedDepth) {
+    console.warn(`[discipleship] Path depth mismatch for node ${node.id}: depth=${node.depth}, path.length-1=${expectedDepth}. Repairing.`);
+    return { ...node, depth: expectedDepth };
+  }
+
+  if (node.parentId) {
+    const parent = allNodes.get(node.parentId);
+    if (!parent) {
+      console.warn(`[discipleship] Parent ${node.parentId} missing for node ${node.id}. Treating as root.`);
+      return { ...node, parentId: null, path: [node.id], depth: 0 };
+    }
+    if (!isPathPrefix(parent.path, node.path)) {
+      console.warn(`[discipleship] Path prefix mismatch for node ${node.id}. Parent path: ${parent.path.join(',')}, node path: ${node.path.join(',')}. Repairing.`);
+      const newPath = [...parent.path, node.id];
+      return { ...node, path: newPath, depth: newPath.length - 1 };
+    }
+  } else if (node.path.length !== 1 || node.path[0] !== node.id) {
+    console.warn(`[discipleship] Root node ${node.id} has invalid path: ${node.path.join(',')}. Repairing.`);
+    return { ...node, path: [node.id], depth: 0 };
+  }
+
+  return node;
+};
+
+/**
+ * Validates and repairs paths for all nodes in a tree, using the full node map
+ * for cross-reference. Returns a new array with corrected nodes.
+ */
+const validateAndRepairAllPaths = (nodes: DiscipleshipNode[]): DiscipleshipNode[] => {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const repaired = nodes.map((node) => validateAndRepairPath(node, nodeMap) ?? node);
+  return repaired;
+};
+
+const readTreeNodesFresh = async (
+  tx: Transaction,
+  nodeIds: string[],
+): Promise<DiscipleshipNode[]> => {
+  const snapshots = await Promise.all(nodeIds.map((id) => tx.get(doc(nodesCollection, id))));
+  const nodes = snapshots
+    .filter((snapshot: DocumentSnapshot) => snapshot.exists())
+    .map((snapshot: DocumentSnapshot) => mapNode(snapshot.id, snapshot.data()!));
+  return validateAndRepairAllPaths(nodes);
+};
+
 const mapTree = (id: string, data: Record<string, unknown>): DiscipleshipTree => ({
   id,
   name: (data.name as string) || 'Untitled tree',
@@ -43,24 +99,28 @@ const mapTree = (id: string, data: Record<string, unknown>): DiscipleshipTree =>
   updatedAt: data.updatedAt,
 });
 
-const mapNode = (id: string, data: Record<string, unknown>): DiscipleshipNode => ({
-  id,
-  treeId: data.treeId as string,
-  nodeType: data.nodeType as DiscipleshipNode['nodeType'],
-  refId: data.refId as string,
-  displayName: (data.displayName as string) || '',
-  photoUrl: (data.photoUrl as string | null) ?? null,
-  parentId: (data.parentId as string | null) ?? null,
-  path: Array.isArray(data.path) ? (data.path as string[]) : [id],
-  depth: typeof data.depth === 'number' ? data.depth : 0,
-  childOrder: typeof data.childOrder === 'number' ? data.childOrder : 0,
-  gospelStatus: data.gospelStatus as string | undefined,
-  membershipStatus: data.membershipStatus as string | undefined,
-  addedByUid: (data.addedByUid as string) || '',
-  addedByName: data.addedByName as string | undefined,
-  createdAt: data.createdAt,
-  updatedAt: data.updatedAt,
-});
+const mapNode = (id: string, data: Record<string, unknown>): DiscipleshipNode => {
+  const rawNode: DiscipleshipNode = {
+    id,
+    treeId: data.treeId as string,
+    nodeType: data.nodeType as DiscipleshipNode['nodeType'],
+    refId: data.refId as string,
+    displayName: (data.displayName as string) || '',
+    photoUrl: (data.photoUrl as string | null) ?? null,
+    parentId: (data.parentId as string | null) ?? null,
+    path: Array.isArray(data.path) ? (data.path as string[]) : [id],
+    depth: typeof data.depth === 'number' ? data.depth : 0,
+    childOrder: typeof data.childOrder === 'number' ? data.childOrder : 0,
+    gospelStatus: data.gospelStatus as string | undefined,
+    membershipStatus: data.membershipStatus as string | undefined,
+    addedByUid: (data.addedByUid as string) || '',
+    addedByName: data.addedByName as string | undefined,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+  // Validation will be applied by the caller when the full node map is available
+  return rawNode;
+};
 
 // ---------------------------------------------------------------------------
 // Trees
@@ -110,13 +170,18 @@ const deleteTreeNodes = async (treeId: string): Promise<void> => {
 // Nodes: subscribe / build
 // ---------------------------------------------------------------------------
 
+const mapAndValidateNodes = (docs: Array<{ id: string; data: () => Record<string, unknown> }>): DiscipleshipNode[] => {
+  const rawNodes = docs.map((entry) => mapNode(entry.id, entry.data()));
+  return validateAndRepairAllPaths(rawNodes);
+};
+
 export const subscribeToTreeNodes = (
   treeId: string,
   onChange: (nodes: DiscipleshipNode[]) => void,
   onError: (error: Error) => void,
 ) => onSnapshot(
   query(nodesCollection, where('treeId', '==', treeId)),
-  (snapshot) => onChange(snapshot.docs.map((entry) => mapNode(entry.id, entry.data()))),
+  (snapshot) => onChange(mapAndValidateNodes(snapshot.docs)),
   onError,
 );
 
@@ -131,13 +196,19 @@ export const subscribeToAllNodes = (
   onError: (error: Error) => void,
 ) => onSnapshot(
   nodesCollection,
-  (snapshot) => onChange(snapshot.docs.map((entry) => mapNode(entry.id, entry.data()))),
+  (snapshot) => onChange(mapAndValidateNodes(snapshot.docs)),
   onError,
 );
 
 export const getTreeNodes = async (treeId: string): Promise<DiscipleshipNode[]> => {
   const snapshot = await getDocs(query(nodesCollection, where('treeId', '==', treeId)));
-  return snapshot.docs.map((entry) => mapNode(entry.id, entry.data()));
+  return mapAndValidateNodes(snapshot.docs);
+};
+
+/** Every node across all trees — used to exclude people already placed anywhere. */
+export const getAllTreeNodes = async (): Promise<DiscipleshipNode[]> => {
+  const snapshot = await getDocs(nodesCollection);
+  return mapAndValidateNodes(snapshot.docs);
 };
 
 /** Builds a render-ready forest from a flat node list, sorted by childOrder. */
@@ -170,9 +241,28 @@ export const buildTreeForest = (nodes: DiscipleshipNode[]): DiscipleshipTreeNode
 // Nodes: add
 // ---------------------------------------------------------------------------
 
+/** Verifies that a user or contact exists before adding to a tree. */
+const verifyRefExists = async (nodeType: 'user' | 'contact', refId: string): Promise<boolean> => {
+  if (nodeType === 'user') {
+    const snap = await getDoc(doc(usersPublicCollection, refId));
+    return snap.exists();
+  } else {
+    const snap = await getDoc(doc(contactsCollection, refId));
+    return snap.exists();
+  }
+};
+
 export const addNode = async (input: AddNodeInput, addedBy: { uid: string; displayName: string }): Promise<void> => {
   const nodeId = discipleshipNodeId(input.treeId, input.nodeType, input.refId);
   const parentId = input.parentId ?? null;
+
+  // Validate that the referenced user/contact exists
+  const refExists = await verifyRefExists(input.nodeType, input.refId);
+  if (!refExists) {
+    throw new Error(input.nodeType === 'user'
+      ? 'Member not found. They may have been deleted.'
+      : 'Contact not found. It may have been deleted.');
+  }
 
   await runTransaction(db, async (tx) => {
     const treeSnap = await tx.get(doc(treesCollection, input.treeId));
@@ -216,39 +306,39 @@ export const addNode = async (input: AddNodeInput, addedBy: { uid: string; displ
 // ---------------------------------------------------------------------------
 
 /**
- * The web SDK's runTransaction only accepts document gets, so we query the
- * tree's node IDs first, then re-read every one of them fresh inside the
- * transaction (all reads precede all writes, per transaction rules). The
- * re-read is what makes concurrent-move detection work.
+ * Fetches all node IDs for a tree. Called outside the transaction since Firestore
+ * doesn't allow queries inside transactions. The transaction will re-read each
+ * node by ID, so concurrent deletions are handled gracefully (node won't exist).
+ * Concurrent additions won't be in our ID list, which is acceptable for
+ * move/remove operations that only affect pre-existing nodes.
  */
-const readTreeNodesFresh = async (
-  tx: Transaction,
-  nodeIds: string[],
-): Promise<DiscipleshipNode[]> => {
-  const snapshots = await Promise.all(nodeIds.map((id) => tx.get(doc(nodesCollection, id))));
-  return snapshots
-    .filter((snapshot: DocumentSnapshot) => snapshot.exists())
-    .map((snapshot: DocumentSnapshot) => mapNode(snapshot.id, snapshot.data()!));
-};
-
 const listTreeNodeIds = async (treeId: string): Promise<string[]> => {
   const snapshot = await getDocs(query(nodesCollection, where('treeId', '==', treeId)));
   return snapshot.docs.map((entry) => entry.id);
 };
 
+/**
+ * Move a node (and its subtree) to a new parent, with atomic transaction and
+ * chunked fallback for large subtrees.
+ */
 export const moveNode = async (
   treeId: string,
   nodeId: string,
   newParentId: string | null,
   childOrder?: number,
 ): Promise<void> => {
+  // Fetch node IDs outside transaction (necessary since we can't query inside).
+  // The transaction will re-read each node by ID, so concurrent deletions
+  // are handled gracefully (node simply won't exist).
+  // Concurrent additions won't be in our ID list, which is acceptable since
+  // we're only moving nodes that existed at the start of the operation.
   const nodeIds = await listTreeNodeIds(treeId);
   if (!nodeIds.includes(nodeId)) throw new Error('Node not found in this tree.');
 
   await runTransaction(db, async (tx) => {
     const nodes = await readTreeNodesFresh(tx, nodeIds);
     const node = nodes.find((entry) => entry.id === nodeId);
-    if (!node) throw new Error('Node not found in this tree.');
+    if (!node) throw new Error('Node not found in this tree (may have been deleted).');
 
     let parentPath: string[] = [];
     if (newParentId) {
@@ -265,9 +355,29 @@ export const moveNode = async (
     const oldPath = node.path;
     const newPath = [...parentPath, nodeId];
     const descendants = nodes.filter((entry) => entry.id !== nodeId && isPathPrefix(oldPath, entry.path));
-    if (descendants.length + 1 > MAX_WRITES_PER_COMMIT) {
-      throw new Error('This subtree is too large to move in one operation.');
+    const totalWrites = descendants.length + 1;
+
+    // If too many writes for one transaction, compute the plan and apply in chunks
+    if (totalWrites > MAX_WRITES_PER_COMMIT) {
+      // Compute the move plan inside the transaction (for validation), then return it
+      const siblings = nodes.filter((entry) => entry.parentId === newParentId && entry.id !== nodeId);
+      const nextChildOrder = typeof childOrder === 'number'
+        ? childOrder
+        : siblings.reduce((max, entry) => Math.max(max, entry.childOrder), -1) + 1;
+
+      return {
+        nodeId,
+        newParentId,
+        newPath,
+        nextChildOrder,
+        descendants: descendants.map((d) => ({
+          id: d.id,
+          suffix: d.path.slice(oldPath.length),
+        })),
+      } as const;
     }
+
+    // Small enough for single atomic transaction
     const siblings = nodes.filter((entry) => entry.parentId === newParentId && entry.id !== nodeId);
     const nextChildOrder = typeof childOrder === 'number'
       ? childOrder
@@ -290,6 +400,33 @@ export const moveNode = async (
         updatedAt: serverTimestamp(),
       });
     }
+    return null;
+  }).then(async (deferred) => {
+    if (!deferred) return;
+
+    // Apply chunked updates outside the transaction
+    // First, update all descendants in shallowest-first order
+    for (let index = 0; index < deferred.descendants.length; index += MAX_WRITES_PER_COMMIT) {
+      const batch = writeBatch(db);
+      deferred.descendants.slice(index, index + MAX_WRITES_PER_COMMIT).forEach((descendant) => {
+        const path = [...deferred.newPath, ...descendant.suffix];
+        batch.update(doc(nodesCollection, descendant.id), {
+          path,
+          depth: path.length - 1,
+          updatedAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+
+    // Finally, update the moved node itself (parentId, childOrder)
+    await updateDoc(doc(nodesCollection, deferred.nodeId), {
+      parentId: deferred.newParentId,
+      path: deferred.newPath,
+      depth: deferred.newPath.length - 1,
+      childOrder: deferred.nextChildOrder,
+      updatedAt: serverTimestamp(),
+    });
   });
 };
 
@@ -410,4 +547,116 @@ export const refreshNodeSnapshot = async (
   if (snapshot.gospelStatus !== undefined) clean.gospelStatus = snapshot.gospelStatus;
   if (snapshot.membershipStatus !== undefined) clean.membershipStatus = snapshot.membershipStatus;
   await updateDoc(doc(nodesCollection, nodeId), clean);
+};
+
+// ---------------------------------------------------------------------------
+// Candidate search (for the add-person modal)
+// ---------------------------------------------------------------------------
+
+export interface SearchCandidatesResult {
+  members: TreeCandidate[];
+  contacts: TreeCandidate[];
+  hasMore: boolean;
+  membersCursor: QueryDocumentSnapshot | null;
+  contactsCursor: QueryDocumentSnapshot | null;
+}
+
+export interface TreeCandidate {
+  nodeType: 'user' | 'contact';
+  refId: string;
+  displayName: string;
+  photoUrl: string | null;
+  subtitle: string;
+  gospelStatus?: string;
+  membershipStatus?: string;
+  phone?: string | null;
+}
+
+/**
+ * Searches for placeable candidates (approved members + contacts) by name.
+ * Excludes people already placed in the given tree.
+ * Returns paginated results for the modal search.
+ */
+export const searchPlaceableCandidates = async (
+  _treeId: string,
+  searchQuery: string,
+  _currentUserId: string,
+  options: { limit?: number; membersCursor?: QueryDocumentSnapshot | null; contactsCursor?: QueryDocumentSnapshot | null } = {}
+): Promise<SearchCandidatesResult> => {
+  const { limit: pageLimit = 20, membersCursor = null, contactsCursor = null } = options;
+  const searchTerm = searchQuery.trim().toLowerCase();
+
+  // Exclude anyone already placed in ANY tree — prevents cross-tree duplicates
+  const placedNodes = await getAllTreeNodes();
+  const placedKeys = new Set(placedNodes.map((n) => `${n.nodeType}:${n.refId}`));
+
+  // Search approved members
+  const membersQuery = query(
+    collection(db, 'users_public'),
+    where('membershipStatus', '==', 'APPROVED'),
+    orderBy('displayName', 'asc'),
+    ...(membersCursor ? [startAfter(membersCursor)] : []),
+    limit(pageLimit + 5) // fetch extra to account for filtering
+  );
+  const membersSnap = await getDocs(membersQuery);
+
+  // Search contacts (community contacts for the organizer)
+  const contactsQuery = query(
+    collection(db, 'contacts'),
+    orderBy('createdAt', 'desc'),
+    ...(contactsCursor ? [startAfter(contactsCursor)] : []),
+    limit(pageLimit + 5)
+  );
+  const contactsSnap = await getDocs(contactsQuery);
+
+  const toMemberCandidate = (docSnap: { id: string; data: () => Record<string, unknown> }): TreeCandidate | null => {
+    const data = docSnap.data() as { uid: string; displayName: string; photoURL?: string; role: string; membershipStatus: string; phone?: string };
+    const refKey = `user:${data.uid}`;
+    if (placedKeys.has(refKey)) return null;
+    if (searchTerm && !data.displayName.toLowerCase().includes(searchTerm)) return null;
+    return {
+      nodeType: 'user',
+      refId: data.uid,
+      displayName: data.displayName || 'Unnamed member',
+      photoUrl: data.photoURL ?? null,
+      subtitle: `Member · ${data.role === 'admin' ? 'Admin' : data.role === 'organizer' ? 'Organizer' : 'Student'}`,
+      membershipStatus: data.membershipStatus,
+      phone: data.phone ?? null,
+    };
+  };
+
+  const toContactCandidate = (docSnap: { id: string; data: () => Record<string, unknown> }): TreeCandidate | null => {
+    const data = docSnap.data() as { name: string; photoUrl?: string; gender: string; outreachPartnerNames?: string[]; gospelStatus?: string; phoneNumber?: string };
+    const refKey = `contact:${docSnap.id}`;
+    if (placedKeys.has(refKey)) return null;
+    if (searchTerm && !data.name.toLowerCase().includes(searchTerm)) return null;
+    const partner = data.outreachPartnerNames?.length ? ` · ${data.outreachPartnerNames.length} partner(s)` : '';
+    return {
+      nodeType: 'contact',
+      refId: docSnap.id,
+      displayName: data.name,
+      photoUrl: data.photoUrl ?? null,
+      subtitle: `Contact · ${data.gender === 'male' ? 'Male' : 'Female'}${partner}`,
+      gospelStatus: data.gospelStatus,
+      phone: data.phoneNumber ?? null,
+    };
+  };
+
+  const members = membersSnap.docs.map(toMemberCandidate).filter((c): c is TreeCandidate => c !== null);
+  const contacts = contactsSnap.docs.map(toContactCandidate).filter((c): c is TreeCandidate => c !== null);
+
+  // Drop contacts whose phone matches a member — the member tab wins.
+  const memberPhones = new Set(members.map((m) => m.phone).filter(Boolean));
+  const dedupedContacts = contacts.filter((c) => !c.phone || !memberPhones.has(c.phone));
+
+  const membersCursorNext = membersSnap.docs.length > 0 ? membersSnap.docs[membersSnap.docs.length - 1] : null;
+  const contactsCursorNext = contactsSnap.docs.length > 0 ? contactsSnap.docs[contactsSnap.docs.length - 1] : null;
+
+  return {
+    members,
+    contacts: dedupedContacts,
+    hasMore: members.length >= pageLimit || contacts.length >= pageLimit,
+    membersCursor: membersCursorNext,
+    contactsCursor: contactsCursorNext,
+  };
 };

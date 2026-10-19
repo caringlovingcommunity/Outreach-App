@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronRight, LayoutGrid, ListTree, Loader2, Network, Plus, Trash2, X } from 'lucide-react';
-import { addNode, createTree, deleteTree, moveNode, removeNodeWithChildren } from '../services/discipleshipService';
-import { useDiscipleshipTree, type TreeOverviewStats, type TreeCandidate } from '../hooks/useDiscipleshipTree';
+import { addNode, createTree, deleteTree, moveNode, removeNodeWithChildren, type TreeCandidate } from '../services/discipleshipService';
+import { useDiscipleshipTree, type TreeOverviewStats } from '../hooks/useDiscipleshipTree';
 import { DiscipleshipTreeView } from './discipleship/DiscipleshipTreeView';
 import { DiscipleshipTreeChart } from './discipleship/DiscipleshipTreeChart';
 import { DiscipleshipTreeOverview } from './discipleship/DiscipleshipTreeOverview';
 import type { DiscipleshipTreeViewProps } from './discipleship/treeInteractions';
-import { UnplacedPanel } from './discipleship/UnplacedPanel';
+import { AddPersonModal } from './discipleship/AddPersonModal';
 import { RemoveNodeDialog } from './discipleship/RemoveNodeDialog';
 import { NodeProfileDrawer } from './discipleship/NodeProfileDrawer';
 import type { DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../types/discipleship';
@@ -82,7 +82,6 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     nodeById,
     forest,
     forestByTree,
-    candidates,
     duplicateTreeCounts,
     treesLoading,
     nodesLoading,
@@ -101,8 +100,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   const [profileNode, setProfileNode] = useState<DiscipleshipNode | null>(null);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [focusTimer, setFocusTimer] = useState<number | null>(null);
-  /** Phone-only bottom sheet holding the picker; sm+ always shows the aside. */
-  const [showPicker, setShowPicker] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newTreeName, setNewTreeName] = useState('');
@@ -126,7 +124,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     setMovingNodeId(null);
     setPlacementTargetId(null);
     setFocusNodeId(null);
-    setShowPicker(false);
+    setShowAddModal(false);
     if (focusTimer !== null) {
       window.clearTimeout(focusTimer);
       setFocusTimer(null);
@@ -138,6 +136,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     // Resetting always expands every node, so a focus target is never hidden.
     resetInteractionState();
     setSelectedTreeId(treeId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (!focusNodeIdOverride) return;
     setFocusNodeId(focusNodeIdOverride);
     setFocusTimer(window.setTimeout(() => setFocusNodeId(null), 2500));
@@ -264,11 +263,10 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       ),
       'Unable to add this person to the tree.',
     );
-    // Phones: get the sheet out of the way once the person is placed. The target
-    // stays armed, so "Add someone" reopens it to place the next person under the
-    // same parent. On a failed placement the sheet stays open to retry. On sm+ the
-    // aside is always visible, so this only resets the phone state.
-    if (added) setShowPicker(false);
+    // On successful placement, the modal's onAdd handler calls onClose automatically.
+    // If adding at root level (no placement target), the modal closes.
+    // If adding under a parent, the modal closes and user clicks "+" again for next person.
+    void added;
   };
 
   const handleSelectParent = async (parentId: string | null) => {
@@ -341,12 +339,13 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       setMovingNodeId(null);
       setFocusNodeId(null);
       setPlacementTargetId(node.id);
-      // Phones open the picker sheet so the target and the list are on screen
-      // together; on sm+ this is a no-op because the aside is always visible.
-      setShowPicker(true);
+      setShowAddModal(true);
     },
     onRemove: (node) => setRemovingNode(node),
-    onOpenProfile: (node) => setProfileNode(node),
+    onOpenProfile: (node) => {
+      if (overviewView === 'cards') window.scrollTo({ top: 0, behavior: 'smooth' });
+      setProfileNode(node);
+    },
     placementTargetId,
     focusNodeId,
   };
@@ -511,15 +510,18 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       </div>
 
       {/* Phones: pinned beneath the measured header so the instruction stays put
-          while panning; also carries the trigger for the add-people sheet. */}
+          while panning; also carries the trigger for the add-people modal. */}
       <div className="sticky top-[var(--app-header-height)] z-20 space-y-2 bg-background sm:hidden">
         {renderActionBanner()}
 
-        {!movingNode && (
+        {!movingNode && !placementTargetName && (
           <button
             type="button"
             className="app-button-primary w-full"
-            onClick={() => setShowPicker(true)}
+            onClick={() => {
+              setPlacementTargetId(null);
+              setShowAddModal(true);
+            }}
             disabled={busy}
           >
             <Plus className="h-4 w-4" />
@@ -542,8 +544,8 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
-        <div className="app-panel space-y-3 p-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
+        <div className="app-panel min-w-0 space-y-3 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <h2 className="text-sm font-bold text-text">Tree</h2>
@@ -579,14 +581,16 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
           )}
         </div>
 
-        <UnplacedPanel
-          candidates={candidates}
+        <AddPersonModal
+          treeId={selectedTreeId!}
+          currentUserId={user.uid}
           placementTargetName={placementTargetName}
+          placedKeys={new Set([...nodeById.values()].map((n) => `${n.nodeType}:${n.refId}`))}
           onAdd={(candidate) => void handleAddCandidate(candidate)}
+          onClose={() => setShowAddModal(false)}
           onClearTarget={() => setPlacementTargetId(null)}
           busy={busy}
-          open={showPicker}
-          onClose={() => setShowPicker(false)}
+          isOpen={showAddModal}
         />
       </div>
 
