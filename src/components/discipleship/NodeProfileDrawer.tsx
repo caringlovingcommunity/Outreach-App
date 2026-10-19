@@ -56,6 +56,12 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({ node, onCl
     ? JOURNEY_OF_FAITH_STEPS.filter((step) => contact.followUpProgress?.[step]).length
     : 0;
 
+  // A member's photo comes from the profile just fetched, not the placement
+  // snapshot, so opening the drawer always shows their current photo.
+  const photoUrl = node.nodeType === 'user'
+    ? member?.photoURL || null
+    : node.photoUrl;
+
   return (
     <div className="app-modal-backdrop" onClick={onClose} role="presentation">
       <div
@@ -68,8 +74,8 @@ export const NodeProfileDrawer: React.FC<NodeProfileDrawerProps> = ({ node, onCl
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-sm font-bold text-primary">
-              {node.photoUrl
-                ? <img src={node.photoUrl} alt="" className="h-full w-full object-cover" />
+              {photoUrl
+                ? <img src={photoUrl} alt="" className="h-full w-full object-cover" />
                 : node.nodeType === 'user' ? <UserRound className="h-5 w-5" /> : node.displayName.slice(0, 2).toUpperCase()}
             </span>
             <div className="min-w-0">

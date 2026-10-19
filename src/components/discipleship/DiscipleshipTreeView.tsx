@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronDown, ChevronRight, MoveRight, Plus, Trash2, UserRound } from 'lucide-react';
 import type { DiscipleshipTreeNode } from '../../types/discipleship';
 import type { DiscipleshipTreeViewProps } from './treeInteractions';
+import { resolveNodePhotoUrl } from './treeInteractions';
 
 export type { TreeMode } from './treeInteractions';
 
@@ -19,7 +20,7 @@ const NodeRow: React.FC<{
   const {
     expandedIds, onToggleExpanded, canEditNodes, mode, movingNode, canDropOn,
     onSelectParent, onStartMove, onAddChild, onRemove, onOpenProfile, placementTargetId,
-    focusNodeId,
+    focusNodeId, photoByRefId,
   } = props;
 
   const hasChildren = children.length > 0;
@@ -29,6 +30,7 @@ const NodeRow: React.FC<{
   const isPlacementTarget = placementTargetId === node.id;
   const isMember = node.nodeType === 'user';
   const isFocused = focusNodeId === node.id;
+  const photoUrl = resolveNodePhotoUrl(node, photoByRefId);
 
   const handleRowActivate = () => {
     if (mode === 'move') {
@@ -70,8 +72,8 @@ const NodeRow: React.FC<{
           title={mode === 'move' ? `Move here under ${node.displayName}` : 'View profile'}
         >
           <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-xs font-bold text-primary">
-            {node.photoUrl
-              ? <img src={node.photoUrl} alt="" className="h-full w-full object-cover" />
+            {photoUrl
+              ? <img src={photoUrl} alt="" className="h-full w-full object-cover" />
               : isMember ? <UserRound className="h-4 w-4" /> : initials(node.displayName)}
           </span>
           <span className="min-w-0 flex-1">

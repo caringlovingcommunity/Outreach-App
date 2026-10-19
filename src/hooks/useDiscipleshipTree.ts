@@ -266,6 +266,18 @@ export const useDiscipleshipTree = (currentUserId: string) => {
     [members, contacts],
   );
 
+  /**
+   * Current member photos keyed by UID. Placed nodes only carry the photo from
+   * placement time, so the tree reads the live value from here to stay in step
+   * with the profile screen. An empty string is kept so a removed photo shows
+   * initials instead of falling back to the stale snapshot.
+   */
+  const photoByRefId = useMemo(() => {
+    const photos = new Map<string, string>();
+    members.forEach((profile) => photos.set(profile.uid, profile.photoURL || ''));
+    return photos;
+  }, [members]);
+
   const candidates = useMemo(
     () => allCandidates.filter((candidate) => !placedKeys.has(refKey(candidate.nodeType, candidate.refId))),
     [allCandidates, placedKeys],
@@ -322,6 +334,7 @@ export const useDiscipleshipTree = (currentUserId: string) => {
     overviewTotals,
     duplicates,
     unplacedAnywhere,
+    photoByRefId,
     treesLoading,
     nodesLoading,
     nodesLoaded,

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -19,6 +20,7 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 googleProvider.setCustomParameters({
@@ -42,6 +44,9 @@ if (import.meta.env.DEV) {
   
   // Auth emulator runs on port 9099
   connectAuthEmulator(auth, authHost, { disableWarnings: true });
+  
+  // Storage emulator runs on port 9199
+  connectStorageEmulator(storage, firestoreHost, 9199);
   
   if (isPhone) {
     console.log(`📱 Phone detected - connecting to emulators at ${LAN_IP}`);

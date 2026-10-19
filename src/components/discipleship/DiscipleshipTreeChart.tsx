@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, Maximize2, MoveRight, Plus, Search, Trash2, UserRound, X, ZoomIn, ZoomOut } from 'lucide-react';
 import type { DiscipleshipTreeViewProps } from './treeInteractions';
+import { resolveNodePhotoUrl } from './treeInteractions';
 import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, DEFAULT_V_GAP, layoutForest, type Layout, type PositionedNode } from './treeLayout';
 import { useChartViewport, type UseChartViewportResult } from '../../hooks/useChartViewport';
 
@@ -16,7 +17,7 @@ const ChartNode: React.FC<{
   const {
     expandedIds, onToggleExpanded, canEditNodes, mode, movingNode, canDropOn,
     onSelectParent, onStartMove, onAddChild, onRemove, onOpenProfile, placementTargetId,
-    focusNodeId,
+    focusNodeId, photoByRefId,
   } = props;
 
   const hasChildren = positioned.childCount > 0;
@@ -26,6 +27,7 @@ const ChartNode: React.FC<{
   const isPlacementTarget = placementTargetId === node.id;
   const isMember = node.nodeType === 'user';
   const isFocused = focusNodeId === node.id;
+  const photoUrl = resolveNodePhotoUrl(node, photoByRefId);
 
   const activate = () => {
     if (mode === 'move') {
@@ -60,8 +62,8 @@ const ChartNode: React.FC<{
           title={mode === 'move' ? `Move here under ${node.displayName}` : `${node.displayName} — view profile`}
         >
           <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-[11px] font-bold text-primary">
-            {node.photoUrl
-              ? <img src={node.photoUrl} alt="" className="h-full w-full object-cover" />
+            {photoUrl
+              ? <img src={photoUrl} alt="" className="h-full w-full object-cover" />
               : isMember ? <UserRound className="h-4 w-4" /> : initials(node.displayName)}
           </span>
           <span className="min-w-0 flex-1">
@@ -350,25 +352,28 @@ const FullScreenTreeSheet: React.FC<{
             {matches.length === 0 ? (
               <li className="px-3 py-2 text-xs text-muted">No one matches that search.</li>
             ) : (
-              matches.map((positioned) => (
-                <li key={positioned.id}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-app-sm px-2 py-2 text-left text-sm transition-colors hover:bg-primary-soft"
-                    onClick={() => selectPerson(positioned)}
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-[11px] font-bold text-primary">
-                      {positioned.node.photoUrl
-                        ? <img src={positioned.node.photoUrl} alt="" className="h-full w-full object-cover" />
-                        : positioned.node.nodeType === 'user' ? <UserRound className="h-4 w-4" /> : initials(positioned.node.displayName)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-semibold text-text">{positioned.node.displayName}</span>
-                    <span className="shrink-0 text-[11px] text-muted">
-                      {positioned.node.nodeType === 'user' ? 'Member' : 'Contact'}
-                    </span>
-                  </button>
-                </li>
-              ))
+              matches.map((positioned) => {
+                  const matchPhotoUrl = resolveNodePhotoUrl(positioned.node, props.photoByRefId);
+                  return (
+                    <li key={positioned.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-app-sm px-2 py-2 text-left text-sm transition-colors hover:bg-primary-soft"
+                        onClick={() => selectPerson(positioned)}
+                      >
+                        <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-[11px] font-bold text-primary">
+                          {matchPhotoUrl
+                            ? <img src={matchPhotoUrl} alt="" className="h-full w-full object-cover" />
+                            : positioned.node.nodeType === 'user' ? <UserRound className="h-4 w-4" /> : initials(positioned.node.displayName)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-semibold text-text">{positioned.node.displayName}</span>
+                        <span className="shrink-0 text-[11px] text-muted">
+                          {positioned.node.nodeType === 'user' ? 'Member' : 'Contact'}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })
             )}
           </ul>
         )}

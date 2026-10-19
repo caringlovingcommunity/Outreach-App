@@ -4,11 +4,14 @@ import { ArrowLeft, Edit3, Plus, Search, Trash2, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useContacts } from "../hooks/useContacts";
 import { UserSearchInput } from "./UserSearchInput";
+import { ContactPhotoPicker } from "./ContactPhotoPicker";
 import {
   createContact,
   deleteContact,
   updateContact,
 } from "../services/contactsService";
+import { removeContactPhoto, uploadContactPhoto } from "../services/contactPhotoService";
+import { getDefaultContactAvatar } from "../utils/contactAvatar";
 import type {
   Contact,
   ContactInput,
@@ -140,17 +143,28 @@ const responseLabels: Record<ResponseStatus, string> = {
   not_ready: "Not ready",
   say_yes_follow_up: "Said yes to follow-up",
 };
-const ContactAvatar: React.FC<{ gender: Gender }> = ({ gender }) => (
+/**
+ * Contact avatar. Uses the uploaded photo when there is one, otherwise the
+ * default avatar for the contact's gender.
+ */
+const ContactAvatar: React.FC<{ gender: Gender; photoUrl?: string | null }> = ({
+  gender,
+  photoUrl,
+}) => (
   <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-primary-soft">
-    <img
-      src={
-        gender === "female"
-          ? "/Avatar%20-%20Female%20_1.png"
-          : "/Avatar%20-%20Male%20_1.png"
-      }
-      alt={`${gender} avatar`}
-      className="h-full w-full object-cover"
-    />
+    {photoUrl ? (
+      <img
+        src={photoUrl}
+        alt=""
+        className="h-full w-full object-cover"
+      />
+    ) : (
+      <img
+        src={getDefaultContactAvatar(gender)}
+        alt={`${gender} avatar`}
+        className="h-full w-full object-cover"
+      />
+    )}
   </div>
 );
 interface MySheepsPageProps {
@@ -178,6 +192,56 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   const [searchTerm, setSearchTerm] = useState("");
   const [linking, setLinking] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  /**
+   * A photo picked on the form but not uploaded yet. The upload waits for the
+   * contact to exist, so a new contact can be given a photo before it is saved.
+   */
+  const [pendingPhoto, setPendingPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  /** The photo the contact had when the form opened, so it can be cleaned up. */
+  const [originalPhotoUrl, setOriginalPhotoUrl] = useState<string | null>(null);
+
+  /**
+   * The photo is managed by whoever has a relationship with the contact: the
+   * creator, the discipler who linked them, the linked disciple, and outreach
+   * partners. The picker is hidden for anyone else, so it can never fail on a
+   * permission the storage rules would refuse.
+   */
+  const canManageContactPhoto = (contact: Contact | null): boolean => {
+    if (!user) return false;
+    if (!contact) return true;
+    return (
+      contact.createdById === user.uid ||
+      contact.linkedByUid === user.uid ||
+      contact.linkedUserId === user.uid ||
+      Boolean(contact.outreachPartnerIds?.includes(user.uid))
+    );
+  };
+
+  /** Release the local preview of a picked photo. */
+  const clearPendingPhoto = () => {
+    setPendingPhoto((current) => {
+      if (current) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  };
+
+  /** Stage a picked photo. It is uploaded when the contact is saved. */
+  const handlePickPhoto = (file: File) => {
+    clearPendingPhoto();
+    setPendingPhoto({ file, previewUrl: URL.createObjectURL(file) });
+  };
+
+  /**
+   * Clear the photo. A photo picked on the form is simply dropped; a photo
+   * already on the contact is marked for removal and cleaned up on save.
+   */
+  const handleRemovePhoto = () => {
+    if (pendingPhoto) {
+      clearPendingPhoto();
+      return;
+    }
+    setForm((current) => ({ ...current, photoUrl: null }));
+  };
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filterContacts = (contacts: Contact[]) => !normalizedSearch
@@ -206,10 +270,22 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     onFormStateChange?.(showForm || Boolean(selectedContact));
   }, [onFormStateChange, selectedContact, showForm]);
 
+  // Release the local preview if the screen goes away with a photo still picked.
+  useEffect(() => {
+    return () => {
+      setPendingPhoto((current) => {
+        if (current) URL.revokeObjectURL(current.previewUrl);
+        return null;
+      });
+    };
+  }, []);
+
   const openCreate = () => {
     setEditing(null);
     setForm(emptyInput());
     setSaveError(null);
+    clearPendingPhoto();
+    setOriginalPhotoUrl(null);
     setShowForm(true);
   };
   const openEdit = (contact: Contact) => {
@@ -235,7 +311,10 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       outreachPartnerIds: contact.outreachPartnerIds || [],
       outreachPartnerNames: contact.outreachPartnerNames || [],
       remarks: contact.remarks || "",
+      photoUrl: contact.photoUrl ?? undefined,
     });
+    clearPendingPhoto();
+    setOriginalPhotoUrl(contact.photoUrl ?? null);
     setSaveError(null);
     setShowForm(true);
   };
@@ -277,6 +356,8 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     setShowForm(false);
     setEditing(null);
     setForm(emptyInput());
+    clearPendingPhoto();
+    setOriginalPhotoUrl(null);
   };
   const openDetails = (contact: Contact) => {
     setSelectedContact(contact);
@@ -313,9 +394,18 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
           Back to My Sheeps
         </button>
         <div className="border-b border-border pb-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary">Contact details</p>
-          <h1 className="mt-1 text-2xl font-bold text-text">{selectedContact.name}</h1>
-          <p className="mt-1 text-sm text-muted">{selectedContact.phoneNumber || "No phone number recorded"}</p>
+          <div className="flex items-center gap-4">
+            <img
+              src={selectedContact.photoUrl || getDefaultContactAvatar(selectedContact.gender)}
+              alt=""
+              className="h-16 w-16 shrink-0 rounded-full border border-border bg-primary-soft object-cover"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Contact details</p>
+              <h1 className="mt-1 text-2xl font-bold text-text">{selectedContact.name}</h1>
+              <p className="mt-1 text-sm text-muted">{selectedContact.phoneNumber || "No phone number recorded"}</p>
+            </div>
+          </div>
         </div>
         <div className="grid gap-4 border-b border-border py-5 text-sm text-text sm:grid-cols-2">
           <p><span className="font-semibold">Gender:</span> {selectedContact.gender === "female" ? "Female" : "Male"}</p>
@@ -397,17 +487,50 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       setSaving(true);
       setSaveError(null);
       setSuccess(null);
-      if (editing)
+
+      // The contact is written first, because a photo can only be stored
+      // against a contact that already exists.
+      let contactId = editing?.id ?? null;
+      if (editing) {
         await updateContact(
           editing.id,
           form,
           editing.createdById,
           editing.createdByName,
         );
-      else await createContact(form, user.uid, user.displayName);
+      } else {
+        contactId = await createContact(form, user.uid, user.displayName);
+      }
+
+      if (pendingPhoto && contactId) {
+        try {
+          const uploaded = await uploadContactPhoto(
+            contactId,
+            pendingPhoto.file,
+            originalPhotoUrl,
+          );
+          setForm((current) => ({ ...current, photoUrl: uploaded }));
+        } catch (photoError) {
+          console.error("Failed to upload contact photo:", photoError);
+          setSaveError(
+            "Contact saved, but the photo could not be uploaded. Please try saving again.",
+          );
+          return;
+        }
+      } else if (form.photoUrl === null && originalPhotoUrl && contactId) {
+        // The photo was removed on the form, so drop the stored object too.
+        try {
+          await removeContactPhoto(contactId, originalPhotoUrl);
+        } catch (photoError) {
+          console.error("Failed to remove contact photo:", photoError);
+        }
+      }
+
       await refresh();
       if (addAnother && !editing) {
         setForm(emptyInput());
+        clearPendingPhoto();
+        setOriginalPhotoUrl(null);
         setSuccess("Contact saved. Add another sheep.");
         setTimeout(() => nameRef.current?.focus(), 0);
       } else closeForm();
@@ -423,7 +546,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       key={contact.id}
       className="flex items-center gap-3 border-b border-border py-3 last:border-0"
     >
-      <ContactAvatar gender={contact.gender} />
+      <ContactAvatar gender={contact.gender} photoUrl={contact.photoUrl} />
       <button
         type="button"
         onClick={() => void openDetails(contact)}
@@ -613,6 +736,33 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
                 className="app-input"
               />
             </label>
+            <div className="mt-4">
+              <span className="app-label">Photo</span>
+              <div className="mt-2">
+                {canManageContactPhoto(editing) ? (
+                  <ContactPhotoPicker
+                    gender={form.gender}
+                    photoUrl={form.photoUrl}
+                    pendingPreviewUrl={pendingPhoto?.previewUrl ?? null}
+                    onPick={handlePickPhoto}
+                    onRemove={handleRemovePhoto}
+                    busy={saving}
+                    contactName={form.name.trim() || "this contact"}
+                  />
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={form.photoUrl || getDefaultContactAvatar(form.gender)}
+                      alt=""
+                      className="h-20 w-20 shrink-0 rounded-full border border-border bg-primary-soft object-cover"
+                    />
+                    <p className="text-sm text-muted">
+                      Only the person who added this contact, their discipler, or an outreach partner can change this photo.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <label>
                 <span className="app-label">Phone</span>

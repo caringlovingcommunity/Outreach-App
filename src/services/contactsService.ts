@@ -73,7 +73,9 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
     ...(input.contactDate ? { contactDate: input.contactDate } : {}),
     ...(phoneNumber ? { phoneNumber } : {}),
     gender: input.gender,
-    photoUrl: null,
+    // Only written when the caller made a decision about the photo. Leaving it
+    // undefined keeps the photo already stored on the contact.
+    ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl } : {}),
     gospelStatus: input.gospelStatus,
     responseStatuses: input.gospelStatus === 'not_started' ? [] : input.responseStatuses,
     followUpProgress: input.responseStatuses.includes('say_yes_follow_up')
@@ -89,12 +91,15 @@ export const createContact = async (
   input: ContactInput,
   createdById: string,
   createdByName: string,
-): Promise<void> => {
-  await addDoc(contactsCollection, {
+): Promise<string> => {
+  // The new id is returned so a photo picked on the form can be uploaded
+  // against it as soon as the contact exists.
+  const contactRef = await addDoc(contactsCollection, {
     ...toPayload(input, createdById, createdByName),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  return contactRef.id;
 };
 
 const mapContact = (contactDoc: { id: string; data: () => Record<string, unknown> }): Contact => ({

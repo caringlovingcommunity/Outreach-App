@@ -124,4 +124,4 @@ export interface Contact {
   updatedAt: any;
 }
 
-export type ContactInput = Omit<Contact, 'id' | 'createdById' | 'createdByName' | 'createdAt' | 'updatedAt' | 'photoUrl'>;
+export type ContactInput = Omit<Contact, 'id' | 'createdById' | 'createdByName' | 'createdAt' | 'updatedAt'>;

@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// Cloud Storage rules for profile photos and contact photos.
+//
+// Profile photos: profile_photos/{userId}/avatar_<timestamp>.jpg
+// Contact photos: contact_photos/{contactId}/avatar_<timestamp>.jpg
+//
+// The active file URL is stored on users_public/{userId}.photoURL (profiles)
+// or contacts/{contactId}.photoUrl (contacts).
+//
+// Reads are intentionally public so plain <img> tags keep working in every
+// directory, heatmap, tree view, and contact list: browsers do not attach a
+// Firebase auth header to image requests, so an auth-gated read rule would
+// break all of them. Object paths are unguessable (auth uid / contact id +
+// upload timestamp), and the photo is already treated as public directory data
+// by Firestore rules.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isOrganizer() {
+      return isSignedIn() &&
+        firestore.get(/databases/(default)/documents/users_public/$(request.auth.uid)).data.role in ['organizer', 'admin'];
+    }
+
+    function canManageProfile(userId) {
+      return isSelf(userId) || isOrganizer();
+    }
+
+    function canManageContact(contactId) {
+      // Creator, the discipler who linked them, the linked disciple, and
+      // outreach partners can manage the contact photo. The contact document
+      // is checked at write time.
+      return isSignedIn() &&
+        (firestore.get(/databases/(default)/documents/contacts/$(contactId)).data.createdById == request.auth.uid ||
+         firestore.get(/databases/(default)/documents/contacts/$(contactId)).data.linkedByUid == request.auth.uid ||
+         firestore.get(/databases/(default)/documents/contacts/$(contactId)).data.linkedUserId == request.auth.uid ||
+         request.auth.uid in firestore.get(/databases/(default)/documents/contacts/$(contactId)).data.outreachPartnerIds);
+    }
+
+    function isAllowedImage() {
+      return request.resource.size < 2 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    match /profile_photos/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if canManageProfile(userId) && isAllowedImage();
+      allow delete: if canManageProfile(userId);
+    }
+
+    match /contact_photos/{contactId}/{fileName} {
+      allow read: if true;
+      allow write: if canManageContact(contactId) && isAllowedImage();
+      allow delete: if canManageContact(contactId);
+    }
+
+    // Deny-by-default: no other bucket path is readable or writable.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

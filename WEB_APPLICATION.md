@@ -200,6 +200,26 @@ This makes joining and leaving idempotent and avoids an extra lookup before togg
 
 Students can edit identity, academic, contact, demographic, residential college, and inviter information. The profile page supports both an editing form and a read-only profile view after completion.
 
+### Profile photos
+
+A profile photo is stored in Cloud Storage and referenced by `users_public/{uid}.photoURL`, so every avatar surface in the application updates from the same field.
+
+- Picked images are validated in the browser, center-cropped to a square, and resized to 512px JPEG before upload, so phone photos stay small.
+- Objects live at `profile_photos/{uid}/avatar_<timestamp>.jpg`. The timestamp keeps each upload a distinct object, so a cached URL can never resolve to the wrong image.
+- The Firestore write happens only after the upload succeeds. A failed upload leaves the previous photo untouched, and a failed profile write deletes the orphaned object.
+- Replacing or removing a photo deletes the previous object when it belongs to the application. A Google account photo seeded at sign-in is left alone.
+- The photo is saved immediately and independently of the profile form, since it is not a form field.
+
+### Contact photos
+
+Contacts in My Sheeps may also carry a photo, stored in Cloud Storage and referenced by `contacts/{contactId}.photoUrl`.
+
+- The photo is optional. Without one, the contact shows the default avatar for its gender, which is what the contact list has always used.
+- Objects live at `contact_photos/{contactId}/avatar_<timestamp>.jpg`, following the same upload and cleanup rules as profile photos.
+- A photo picked on the Add or Edit form is staged locally and uploaded when the contact is saved, because a new contact has no document to upload against yet.
+- The creator, the discipler who linked the contact, the linked disciple, and outreach partners may change the photo. The picker is hidden for anyone else, so it never fails on a refused permission.
+- Only the linked disciple may change the photo itself; every other field of the contact stays with the people who manage it.
+
 ## 7. Organizer Experience
 
 ### Organizer dashboard views
@@ -275,7 +295,7 @@ The rest of the application treats the active semester as the current availabili
   "users_public/{uid}": {
     "uid": "uid",
     "displayName": "Student Name",
-    "photoURL": "https://...",
+    "photoURL": "https://firebasestorage.googleapis.com/...",
     "faculty": "FCSIT",
     "course": "Computer Science",
     "yearOfStudy": 2,
@@ -316,6 +336,14 @@ Firestore rules currently enforce the main ownership boundaries:
 - Organizers may read private student details.
 - A student may create or remove only their own event signup.
 - Event signup updates are disabled; join/leave is modeled as create/delete.
+
+Storage rules govern profile photos under `profile_photos/{uid}/` and contact photos under `contact_photos/{contactId}/`:
+
+- Reads are public, because the application renders avatars in plain `<img>` tags that carry no Firebase auth header. Object paths are unguessable and the photo is already public directory data in Firestore.
+- Profile photo writes and deletes are limited to the photo owner and to organizers and admins, resolved from `users_public/{uid}.role`.
+- Contact photo writes and deletes are limited to the contact's creator, the discipler who linked them, the linked disciple, and outreach partners, resolved from the contact document.
+- Uploads are capped at 2 MB and must be an image type. The client downsizes to 512px JPEG first, so real photos stay well under the cap.
+- Every other storage path is denied.
 
 Before expanding the application, the following should be hardened:
 
@@ -370,6 +398,8 @@ src/
     OrganizerHeatmap.tsx           Heatmap and exports
     OrganizerStudentList.tsx       Student directory and detail modal
     ProfilePage.tsx                Profile display and editing
+    ContactPhotoPicker.tsx         Contact photo upload control
+    ProfilePhotoPicker.tsx         Profile photo upload control
     RequireProfileComplete.tsx     Authentication route guard
     SemesterManagerModal.tsx       Semester administration modal
     StudentDashboard.tsx            Student shell and tabs
@@ -388,6 +418,8 @@ src/
   services/
     firebase.ts                     Firebase initialization
     organizerService.ts             Organizer directory queries
+    contactPhotoService.ts          Contact photo upload and removal
+    profilePhotoService.ts          Profile photo upload and removal
     profileService.ts               Reserved profile service module
     userService.ts                  Profile reads and atomic writes
   types/
@@ -395,9 +427,11 @@ src/
     user.ts                         Public/private profile types
   utils/
     exportUtils.ts                  Text and CSV exports
+    contactAvatar.ts                Default avatar for contacts
+    imageProcessing.ts              Square crop and resize for profile photos
 ```
 
-`firebase.json` configures Firestore rules and Firebase Hosting. The repository also contains root-level legacy/template entry files alongside the active `src/` application; the Vite configuration should remain the source of truth for which entry point is built.
+`firebase.json` configures Firestore rules, Cloud Storage rules, and Firebase Hosting. The repository also contains root-level legacy/template entry files alongside the active `src/` application; the Vite configuration should remain the source of truth for which entry point is built.
 
 ## 12. Current Limitations
 

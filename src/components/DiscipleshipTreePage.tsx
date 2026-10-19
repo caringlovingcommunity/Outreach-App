@@ -88,6 +88,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     error,
     setError,
     nodesLoaded,
+    photoByRefId,
   } = useDiscipleshipTree(user.uid);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
@@ -396,6 +397,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     },
     placementTargetId,
     focusNodeId,
+    photoByRefId,
   };
 
   // --- Tree list (overview) ---
@@ -488,6 +490,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
                 overviewByTree={overviewByTree}
                 duplicateTreeCounts={duplicateTreeCounts}
                 collapsedIds={mapCollapsedIds}
+                photoByRefId={photoByRefId}
                 onToggleCollapse={toggleMapCollapsed}
                 onOpenTree={(treeId) => openTree(treeId)}
               />

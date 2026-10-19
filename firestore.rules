@@ -101,14 +101,15 @@ service cloud.firestore {
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'visionCastingAccepted', 'membershipStatus', 'approvedByUid',
-          'approvedByEmail', 'approvedAt'
+          'approvedByEmail', 'approvedAt', 'photoURL'
         ]) &&
         request.resource.data.role == resource.data.role &&
         request.resource.data.visionCastingAccepted is bool &&
         request.resource.data.membershipStatus in ['PENDING', 'APPROVED', 'REJECTED', 'FILTERED'] &&
         (!('approvedByUid' in request.resource.data) || request.resource.data.approvedByUid is string) &&
         (!('approvedByEmail' in request.resource.data) || request.resource.data.approvedByEmail is string) &&
-        (!('approvedAt' in request.resource.data) || request.resource.data.approvedAt is timestamp);
+        (!('approvedAt' in request.resource.data) || request.resource.data.approvedAt is timestamp) &&
+        (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string);
       allow update: if isAuthenticated() &&
         isAdmin() &&
         request.resource.data.uid == resource.data.uid &&
@@ -251,7 +252,8 @@ service cloud.firestore {
         (!('linkedUserId' in data) || data.linkedUserId is string) &&
         (!('linkedAt' in data) || data.linkedAt is timestamp) &&
         (!('linkedByUid' in data) || data.linkedByUid is string) &&
-        (!('photoUrl' in data) || data.photoUrl == null) &&
+        (!('photoUrl' in data) || data.photoUrl == null ||
+          (data.photoUrl is string && data.photoUrl.size() <= 2048)) &&
         (data.gospelStatus != 'not_started' || (data.responseStatuses.size() == 0 && hasNoJourneyProgress(data))) &&
         (!data.responseStatuses.hasAny(['not_ready']) ||
           (data.responseStatuses.size() == 1 && hasNoJourneyProgress(data))) &&
@@ -260,47 +262,64 @@ service cloud.firestore {
     }
 
     match /contacts/{contactId} {
+      // Fields fixed when the contact is created. No update may change them.
+      function contactIdentityUnchanged() {
+        return request.resource.data.createdById == resource.data.createdById &&
+          request.resource.data.createdByName == resource.data.createdByName &&
+          request.resource.data.createdAt == resource.data.createdAt;
+      }
+
+      function changedFields() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+
+      // The person who added the contact.
+      function isContactCreator() {
+        return isOwner(resource.data.createdById);
+      }
+
+      // The disciple who linked this contact.
+      function isContactDiscipler() {
+        return isOwner(resource.data.linkedByUid);
+      }
+
+      // The disciple this contact is about.
+      function isContactDisciple() {
+        return isOwner(resource.data.linkedUserId);
+      }
+
+      // A CLC friend listed as an outreach partner.
+      function isContactPartner() {
+        return request.auth.uid in resource.data.outreachPartnerIds;
+      }
+
       allow read: if isMember();
       allow create: if isMember() &&
         request.resource.data.createdById == request.auth.uid &&
         validContact(request.resource.data);
+
+      // One rule covers every editor, so the contact document is validated once
+      // per request. A clause per role exhausted the rules expression budget
+      // and denied legitimate updates.
       allow update: if isMember() &&
-        isOrganizer() &&
-        request.resource.data.createdById == resource.data.createdById &&
-        request.resource.data.createdByName == resource.data.createdByName &&
-        request.resource.data.createdAt == resource.data.createdAt &&
+        contactIdentityUnchanged() &&
+        (
+          // Organizers and the discipler who linked the contact manage the
+          // whole record, including the link fields.
+          isOrganizer() ||
+          isContactDiscipler() ||
+          // The creator manages everything except the link fields.
+          (isContactCreator() && !changedFields().hasAny(['linkedUserId', 'linkedAt', 'linkedByUid'])) ||
+          // Outreach partners manage a limited set of fields.
+          (isContactPartner() && changedFields().hasOnly([
+            'name', 'contactDate', 'phoneNumber', 'gender', 'photoUrl', 'gospelStatus', 'responseStatuses',
+            'followUpProgress', 'remarks', 'updatedAt'
+          ])) ||
+          // The disciple the contact is about may keep their own photo current.
+          (isContactDisciple() && changedFields().hasOnly(['photoUrl', 'updatedAt']))
+        ) &&
         validContact(request.resource.data);
-      allow update: if isMember() &&
-        isOwner(resource.data.createdById) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['linkedUserId', 'linkedAt', 'linkedByUid']) &&
-        request.resource.data.createdById == resource.data.createdById &&
-        request.resource.data.createdByName == resource.data.createdByName &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        validContact(request.resource.data);
-      allow update: if isMember() &&
-        isOwner(resource.data.linkedByUid) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['linkedUserId', 'linkedAt', 'linkedByUid']) &&
-        request.resource.data.createdById == resource.data.createdById &&
-        request.resource.data.createdByName == resource.data.createdByName &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        validContact(request.resource.data);
-      allow update: if isMember() &&
-        request.auth.uid in resource.data.outreachPartnerIds &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name', 'contactDate', 'phoneNumber', 'gender', 'photoUrl', 'gospelStatus', 'responseStatuses',
-          'followUpProgress', 'remarks', 'updatedAt'
-        ]) &&
-        request.resource.data.createdById == resource.data.createdById &&
-        request.resource.data.createdByName == resource.data.createdByName &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        validContact(request.resource.data);
-      allow update: if isMember() &&
-        isOwner(resource.data.linkedByUid) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['linkedUserId', 'linkedAt', 'linkedByUid', 'updatedAt']) &&
-        request.resource.data.createdById == resource.data.createdById &&
-        request.resource.data.createdByName == resource.data.createdByName &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        validContact(request.resource.data);
+
       allow delete: if isMember() &&
         (isOwner(resource.data.createdById) || isAdmin());
     }

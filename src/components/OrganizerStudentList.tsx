@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { ImageIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getDisciplerForStudent } from '../services/contactsService';
 import { getUserFullDetail, subscribeToApprovedUsers, type DirectoryUser } from '../services/organizerService';
+import { ProfilePhotoPicker } from './ProfilePhotoPicker';
 import type { PublicUserProfile } from '../types/user';
 import { FACULTIES } from '../constants/unimasData';
 
@@ -28,6 +30,9 @@ export const OrganizerStudentList: React.FC = () => {
   const [disciplerName, setDisciplerName] = useState<string | null>(null);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [showPhotoEditor, setShowPhotoEditor] = useState<boolean>(false);
+
+  const canManagePhotos = user?.role === 'organizer' || user?.role === 'admin';
 
   // 1. Check authorization & fetch public student directory
   useEffect(() => {
@@ -88,6 +93,7 @@ export const OrganizerStudentList: React.FC = () => {
     setModalError(null);
     setSelectedStudent(null);
     setDisciplerName(null);
+    setShowPhotoEditor(false);
 
     try {
       const [fullDetail, discipler] = await Promise.all([
@@ -483,6 +489,46 @@ export const OrganizerStudentList: React.FC = () => {
                       <span className="break-all font-medium text-text">{selectedStudent.approvedByEmail || selectedStudent.approvedByUid || '—'}</span>
                     </div>
                   </div>
+
+                  {/* Organizer photo override */}
+                  {canManagePhotos && (
+                    <div className="border-t border-border pt-4">
+                      {showPhotoEditor ? (
+                        <>
+                          <ProfilePhotoPicker
+                            userId={selectedStudent.uid}
+                            photoURL={selectedStudent.photoURL}
+                            displayName={selectedStudent.displayName}
+                            changeLabel={`Update photo for ${selectedStudent.displayName}`}
+                            onPhotoChanged={(photoURL) => {
+                              setSelectedStudent((previous) => previous ? { ...previous, photoURL } : previous);
+                              setStudents((previous) =>
+                                previous.map((student) =>
+                                  student.uid === selectedStudent.uid ? { ...student, photoURL } : student,
+                                ),
+                              );
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPhotoEditor(false)}
+                            className="app-button-text mt-3 min-h-11 px-3 text-sm"
+                          >
+                            Done
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShowPhotoEditor(true)}
+                          className="app-button-secondary min-h-11 px-4 py-2 text-sm"
+                        >
+                          <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                          Change Photo
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                 </div>
               ) : null}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Network, UserRound } from 'lucide-react';
 import { layoutForest, type Layout, type PositionedNode } from './treeLayout';
+import { resolveNodePhotoUrl } from './treeInteractions';
 import type { TreeOverviewStats } from '../../hooks/useDiscipleshipTree';
 import type { DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../../types/discipleship';
 
@@ -88,6 +89,8 @@ interface DiscipleshipTreeOverviewProps {
   duplicateTreeCounts: Map<string, number>;
   /** Node ids folded in the map. Global ids, so one set covers every tree. */
   collapsedIds: Set<string>;
+  /** Current member photos keyed by `users_public` UID, so tiles are never stale. */
+  photoByRefId?: Map<string, string>;
   onToggleCollapse: (nodeId: string) => void;
   onOpenTree: (treeId: string) => void;
 }
@@ -98,10 +101,12 @@ const OverviewNode: React.FC<{
   nodeWidth: number;
   duplicateTreeCount: number;
   isCollapsed: boolean;
+  photoByRefId?: Map<string, string>;
   onToggleCollapse: (nodeId: string) => void;
-}> = ({ positioned, treeName, nodeWidth, duplicateTreeCount, isCollapsed, onToggleCollapse }) => {
+}> = ({ positioned, treeName, nodeWidth, duplicateTreeCount, isCollapsed, photoByRefId, onToggleCollapse }) => {
   const { node, hiddenCount, childCount } = positioned;
   const isMember = node.nodeType === 'user';
+  const photoUrl = resolveNodePhotoUrl(node, photoByRefId);
   const hasChildren = childCount > 0;
   const hiddenLabel = hiddenCount > 0 ? ` · +${hiddenCount} hidden` : '';
   const duplicateLabel = duplicateTreeCount > 1 ? ` · in ${duplicateTreeCount} trees` : '';
@@ -120,8 +125,8 @@ const OverviewNode: React.FC<{
         title={`${node.displayName} — ${isMember ? 'Member' : 'Contact'} in ${treeName}${hiddenLabel}${duplicateLabel}`}
       >
         <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-[10px] font-bold text-primary">
-          {node.photoUrl
-            ? <img src={node.photoUrl} alt="" className="h-full w-full object-cover" />
+          {photoUrl
+            ? <img src={photoUrl} alt="" className="h-full w-full object-cover" />
             : isMember ? <UserRound className="h-3.5 w-3.5" /> : initials(node.displayName)}
         </span>
         <span className="min-w-0 flex-1">
@@ -250,6 +255,7 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
   overviewByTree,
   duplicateTreeCounts,
   collapsedIds,
+  photoByRefId,
   onToggleCollapse,
   onOpenTree,
 }) => {
@@ -364,6 +370,7 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
                 nodeWidth={block.nodeWidth}
                 duplicateTreeCount={duplicateTreeCounts.get(refKeyOf(positioned.node)) ?? 1}
                 isCollapsed={collapsedIds.has(positioned.node.id)}
+                photoByRefId={photoByRefId}
                 onToggleCollapse={onToggleCollapse}
               />
             ))

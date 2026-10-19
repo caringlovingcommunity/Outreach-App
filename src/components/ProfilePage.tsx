@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Edit3, GraduationCap, Mail, MapPin, Phone, Shield } from 'lucide-react';
+import { ArrowLeft, Edit3, GraduationCap, ImageIcon, Mail, MapPin, Phone, Shield } from 'lucide-react';
 import { getCompleteUserProfile, updateUserProfile, type UpdateProfileInput } from '../services/userService';
+import { ProfilePhotoPicker } from './ProfilePhotoPicker';
 import { UserSearchInput } from '../components/UserSearchInput';
 import { FACULTIES, COLLEGES, YEARS_OF_STUDY, GENDERS } from '../constants/unimasData';
 import type { FacultyCode, CollegeName } from '../types/user';
@@ -20,6 +21,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(true);
+  const [showPhotoEditor, setShowPhotoEditor] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
@@ -174,18 +176,42 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
                   {college && <span className="rounded-full bg-surface-muted px-3 py-1">{college}</span>}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMessage(null);
-                  setIsEditing(true);
-                }}
-                className="app-button-primary"
-              >
-                <Edit3 className="h-4 w-4" />
-                Edit Profile
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessage(null);
+                    setShowPhotoEditor((previous) => !previous);
+                  }}
+                  className="app-button-secondary"
+                  aria-expanded={showPhotoEditor}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  {showPhotoEditor ? 'Close Photo Editor' : 'Change Photo'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessage(null);
+                    setIsEditing(true);
+                  }}
+                  className="app-button-primary"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  Edit Profile
+                </button>
+              </div>
             </div>
+
+            {showPhotoEditor && (
+              <div className="app-panel mt-6 p-5">
+                <ProfilePhotoPicker
+                  userId={currentUser.uid}
+                  photoURL={currentUser.photoURL}
+                  displayName={displayName || currentUser.displayName}
+                />
+              </div>
+            )}
 
             {message && (
               <div className="app-alert-success mt-6 font-medium">
@@ -253,10 +279,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
             </div>
           )}
 
-          {/* SECTION 1: PUBLIC IDENTITY */}
+          {/* SECTION 1: PROFILE PHOTO */}
           <div>
             <h2 className="mb-4 border-b border-border pb-2 text-base font-semibold text-text">
-              1. Basic Information
+              1. Profile Photo
+            </h2>
+            <ProfilePhotoPicker
+              userId={currentUser.uid}
+              photoURL={currentUser.photoURL}
+              displayName={displayName || currentUser.displayName}
+              changeLabel="Upload photo"
+            />
+            <p className="mt-3 text-xs text-subtle">
+              Your photo is saved immediately and is visible to other participants in the directory.
+            </p>
+          </div>
+
+          {/* SECTION 2: PUBLIC IDENTITY */}
+          <div>
+            <h2 className="mb-4 border-b border-border pb-2 text-base font-semibold text-text">
+              2. Basic Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -286,10 +328,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
             </div>
           </div>
 
-          {/* SECTION 2: ACADEMIC DETAILS */}
+          {/* SECTION 3: ACADEMIC DETAILS */}
           <div>
             <h2 className="mb-4 border-b border-border pb-2 text-base font-semibold text-text">
-              2. Academic Information
+              3. Academic Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
@@ -348,10 +390,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
             </div>
           </div>
 
-          {/* SECTION 3: CONTACT & HOUSING */}
+          {/* SECTION 4: CONTACT & HOUSING */}
           <div>
             <h2 className="mb-4 border-b border-border pb-2 text-base font-semibold text-text">
-              3. Contact & College
+              4. Contact & College
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
@@ -391,10 +433,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
             </div>
           </div>
 
-          {/* SECTION 4: DEMOGRAPHICS & REFERRAL */}
+          {/* SECTION 5: DEMOGRAPHICS & REFERRAL */}
           <div>
             <h2 className="mb-4 border-b border-border pb-2 text-base font-semibold text-text">
-              4. Secondary Details & Referral
+              5. Secondary Details & Referral
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               
