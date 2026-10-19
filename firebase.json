@@ -16,5 +16,25 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "192.168.0.4"
+    },
+    "firestore": {
+      "port": 4001,
+      "host": "192.168.0.4"
+    },
+    "hosting": {
+      "port": 8080,
+      "host": "192.168.0.4"
+    },
+    "ui": {
+      "enabled": true,
+      "host": "192.168.0.4",
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }

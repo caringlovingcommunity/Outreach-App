@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -24,3 +24,26 @@ export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',
 });
+
+// Connect to Firebase Emulators in development
+if (import.meta.env.DEV) {
+  // Detect if running on phone (non-localhost origin)
+  // Replace LAN_IP with your Mac's actual LAN IP (run `ifconfig | grep "inet " | grep -v 127.0.0.1`)
+  const isPhone = typeof window !== 'undefined' && 
+    window.location.hostname !== 'localhost' && 
+    window.location.hostname !== '127.0.0.1';
+  
+  const LAN_IP = '192.168.0.4'; // TODO: Replace with your Mac's LAN IP
+  const firestoreHost = isPhone ? LAN_IP : 'localhost';
+  const authHost = isPhone ? `http://${LAN_IP}:9099` : 'http://localhost:9099';
+  
+  // Firestore emulator runs on port 4001
+  connectFirestoreEmulator(db, firestoreHost, 4001);
+  
+  // Auth emulator runs on port 9099
+  connectAuthEmulator(auth, authHost, { disableWarnings: true });
+  
+  if (isPhone) {
+    console.log(`📱 Phone detected - connecting to emulators at ${LAN_IP}`);
+  }
+}
