@@ -8,16 +8,19 @@ import {
   uploadProfilePhoto,
   type PhotoUploadProgress,
 } from '../services/profilePhotoService';
-import { processProfileImage, validateProfileImage } from '../utils/imageProcessing';
+import { prepareProfileImages, validateProfileImage } from '../utils/imageProcessing';
 
 type PickerSize = 'sm' | 'md';
 
 interface ProfilePhotoPickerProps {
   userId: string;
+  /** The framed avatar currently on the profile. */
   photoURL?: string;
+  /** The whole picture, opened when the avatar is selected. */
+  fullPhotoURL?: string;
   displayName: string;
-  /** Called with the new value ('' when removed) once the change is saved. */
-  onPhotoChanged?: (photoURL: string) => void;
+  /** Called with the new values once the change is saved. */
+  onPhotoChanged?: (photoURL: string, fullPhotoURL: string) => void;
   size?: PickerSize;
   /** Label for the action, e.g. "Change photo" or "Update for this student". */
   changeLabel?: string;
@@ -37,6 +40,7 @@ const PROGRESS_LABELS: Record<PhotoUploadProgress['stage'], string> = {
 export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
   userId,
   photoURL,
+  fullPhotoURL,
   displayName,
   onPhotoChanged,
   size = 'md',
@@ -44,6 +48,7 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [localPhotoURL, setLocalPhotoURL] = useState<string>(photoURL || '');
+  const [localFullPhotoURL, setLocalFullPhotoURL] = useState<string>(fullPhotoURL || '');
   const [uploading, setUploading] = useState<boolean>(false);
   const [progress, setProgress] = useState<PhotoUploadProgress>({ stage: 'processing', percent: 0 });
   const [imageFailed, setImageFailed] = useState<boolean>(false);
@@ -59,6 +64,12 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
     setLastPhotoURLProp(photoURL);
     setLocalPhotoURL(photoURL || '');
     setImageFailed(false);
+  }
+
+  const [lastFullPhotoURLProp, setLastFullPhotoURLProp] = useState<string | undefined>(fullPhotoURL);
+  if (fullPhotoURL !== lastFullPhotoURLProp) {
+    setLastFullPhotoURLProp(fullPhotoURL);
+    setLocalFullPhotoURL(fullPhotoURL || '');
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,13 +108,20 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
     setProgress({ stage: 'processing', percent: 0 });
 
     try {
-      const processed = await processProfileImage(source.file, crop);
+      const prepared = await prepareProfileImages(source.file, crop);
       URL.revokeObjectURL(source.url);
 
-      const newPhotoURL = await uploadProfilePhoto(userId, processed.blob, localPhotoURL, setProgress);
-      setLocalPhotoURL(newPhotoURL);
+      const uploaded = await uploadProfilePhoto(
+        userId,
+        { avatar: prepared.avatar, full: prepared.full },
+        localPhotoURL,
+        localFullPhotoURL,
+        setProgress,
+      );
+      setLocalPhotoURL(uploaded.photoURL);
+      setLocalFullPhotoURL(uploaded.fullPhotoURL);
       setImageFailed(false);
-      onPhotoChanged?.(newPhotoURL);
+      onPhotoChanged?.(uploaded.photoURL, uploaded.fullPhotoURL);
       setMessage({ type: 'success', text: 'Profile photo updated.' });
     } catch (error) {
       console.error('Profile photo upload failed:', error);
@@ -123,10 +141,11 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
     setUploading(true);
 
     try {
-      await removeProfilePhoto(userId, localPhotoURL);
+      await removeProfilePhoto(userId, localPhotoURL, localFullPhotoURL);
       setLocalPhotoURL('');
+      setLocalFullPhotoURL('');
       setImageFailed(false);
-      onPhotoChanged?.('');
+      onPhotoChanged?.('', '');
       setMessage({ type: 'success', text: 'Profile photo removed.' });
     } catch (error) {
       console.error('Profile photo removal failed:', error);
@@ -251,7 +270,7 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
 
       {enlarged && hasPhoto && (
         <PhotoLightbox
-          src={localPhotoURL}
+          src={localFullPhotoURL || localPhotoURL}
           alt={`${displayName} profile photo`}
           caption={displayName}
           onClose={() => setEnlarged(false)}

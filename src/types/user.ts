@@ -18,7 +18,10 @@ export type MembershipStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILTERED';
 export interface PublicUserProfile {
   uid: string;
   displayName: string;
+  /** The framed avatar, used in every small circular image. */
   photoURL?: string;
+  /** The whole picture, opened when the avatar is selected. */
+  fullPhotoURL?: string;
   faculty?: FacultyCode;
   course?: string;
   yearOfStudy?: 1 | 2 | 3 | 4 | 5;

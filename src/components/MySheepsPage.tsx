@@ -151,15 +151,16 @@ const responseLabels: Record<ResponseStatus, string> = {
 const ContactAvatar: React.FC<{
   gender: Gender;
   photoUrl?: string | null;
+  fullPhotoUrl?: string | null;
   name?: string;
   onEnlarge?: (photoUrl: string, name: string) => void;
-}> = ({ gender, photoUrl, name, onEnlarge }) => (
+}> = ({ gender, photoUrl, fullPhotoUrl, name, onEnlarge }) => (
   <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-primary-soft">
     {photoUrl ? (
       onEnlarge ? (
         <button
           type="button"
-          onClick={() => onEnlarge(photoUrl, name || "this contact")}
+          onClick={() => onEnlarge(fullPhotoUrl || photoUrl, name || "this contact")}
           aria-label={`Enlarge ${name || "this contact"}'s photo`}
           title="Enlarge photo"
           className="block h-full w-full"
@@ -207,9 +208,11 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
    * A photo picked on the form but not uploaded yet. The upload waits for the
    * contact to exist, so a new contact can be given a photo before it is saved.
    */
-  const [pendingPhoto, setPendingPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<{ avatar: Blob; full: Blob; previewUrl: string } | null>(null);
   /** The photo the contact had when the form opened, so it can be cleaned up. */
   const [originalPhotoUrl, setOriginalPhotoUrl] = useState<string | null>(null);
+  /** The whole picture the contact had, so it can be cleaned up too. */
+  const [originalFullPhotoUrl, setOriginalFullPhotoUrl] = useState<string | null>(null);
   /** The photo currently shown enlarged, if any. */
   const [enlargedPhoto, setEnlargedPhoto] = useState<{ url: string; name: string } | null>(null);
 
@@ -239,9 +242,9 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   };
 
   /** Stage a picked photo. It is uploaded when the contact is saved. */
-  const handlePickPhoto = (blob: Blob) => {
+  const handlePickPhoto = (images: { avatar: Blob; full: Blob }) => {
     clearPendingPhoto();
-    setPendingPhoto({ blob, previewUrl: URL.createObjectURL(blob) });
+    setPendingPhoto({ ...images, previewUrl: URL.createObjectURL(images.avatar) });
   };
 
   /**
@@ -253,7 +256,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       clearPendingPhoto();
       return;
     }
-    setForm((current) => ({ ...current, photoUrl: null }));
+    setForm((current) => ({ ...current, photoUrl: null, fullPhotoUrl: null }));
   };
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -299,6 +302,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     setSaveError(null);
     clearPendingPhoto();
     setOriginalPhotoUrl(null);
+    setOriginalFullPhotoUrl(null);
     setShowForm(true);
   };
   const openEdit = (contact: Contact) => {
@@ -325,9 +329,11 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       outreachPartnerNames: contact.outreachPartnerNames || [],
       remarks: contact.remarks || "",
       photoUrl: contact.photoUrl ?? undefined,
+      fullPhotoUrl: contact.fullPhotoUrl ?? undefined,
     });
     clearPendingPhoto();
     setOriginalPhotoUrl(contact.photoUrl ?? null);
+    setOriginalFullPhotoUrl(contact.fullPhotoUrl ?? null);
     setSaveError(null);
     setShowForm(true);
   };
@@ -371,6 +377,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     setForm(emptyInput());
     clearPendingPhoto();
     setOriginalPhotoUrl(null);
+    setOriginalFullPhotoUrl(null);
   };
   const openDetails = (contact: Contact) => {
     setSelectedContact(contact);
@@ -412,7 +419,10 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
               <button
                 type="button"
                 onClick={() =>
-                  setEnlargedPhoto({ url: selectedContact.photoUrl as string, name: selectedContact.name })
+                  setEnlargedPhoto({
+                    url: selectedContact.fullPhotoUrl || (selectedContact.photoUrl as string),
+                    name: selectedContact.name,
+                  })
                 }
                 aria-label={`Enlarge ${selectedContact.name}'s photo`}
                 title="Enlarge photo"
@@ -546,10 +556,15 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
         try {
           const uploaded = await uploadContactPhoto(
             contactId,
-            pendingPhoto.blob,
+            { avatar: pendingPhoto.avatar, full: pendingPhoto.full },
             originalPhotoUrl,
+            originalFullPhotoUrl,
           );
-          setForm((current) => ({ ...current, photoUrl: uploaded }));
+          setForm((current) => ({
+            ...current,
+            photoUrl: uploaded.photoUrl,
+            fullPhotoUrl: uploaded.fullPhotoUrl,
+          }));
         } catch (photoError) {
           console.error("Failed to upload contact photo:", photoError);
           setSaveError(
@@ -558,9 +573,9 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
           return;
         }
       } else if (form.photoUrl === null && originalPhotoUrl && contactId) {
-        // The photo was removed on the form, so drop the stored object too.
+        // The photo was removed on the form, so drop the stored objects too.
         try {
-          await removeContactPhoto(contactId, originalPhotoUrl);
+          await removeContactPhoto(contactId, originalPhotoUrl, originalFullPhotoUrl);
         } catch (photoError) {
           console.error("Failed to remove contact photo:", photoError);
         }
@@ -589,6 +604,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       <ContactAvatar
         gender={contact.gender}
         photoUrl={contact.photoUrl}
+        fullPhotoUrl={contact.fullPhotoUrl}
         name={contact.name}
         onEnlarge={(url, name) => setEnlargedPhoto({ url, name })}
       />
@@ -796,6 +812,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
                   <ContactPhotoPicker
                     gender={form.gender}
                     photoUrl={form.photoUrl}
+                    fullPhotoUrl={form.fullPhotoUrl}
                     pendingPreviewUrl={pendingPhoto?.previewUrl ?? null}
                     onPick={handlePickPhoto}
                     onRemove={handleRemovePhoto}

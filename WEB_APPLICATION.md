@@ -204,19 +204,20 @@ Students can edit identity, academic, contact, demographic, residential college,
 
 A profile photo is stored in Cloud Storage and referenced by `users_public/{uid}.photoURL`, so every avatar surface in the application updates from the same field.
 
-- Picked images are validated in the browser, center-cropped to a square, and resized to 512px JPEG before upload, so phone photos stay small.
-- Objects live at `profile_photos/{uid}/avatar_<timestamp>.jpg`. The timestamp keeps each upload a distinct object, so a cached URL can never resolve to the wrong image.
-- The Firestore write happens only after the upload succeeds. A failed upload leaves the previous photo untouched, and a failed profile write deletes the orphaned object.
-- Replacing or removing a photo deletes the previous object when it belongs to the application. A Google account photo seeded at sign-in is left alone.
+- Two versions are prepared from one pick: the framed avatar, cut from the square the user chose and downscaled to 512px, and the whole picture, downscaled to a 1600px edge but never cropped.
+- The avatar is written to `photoURL` and the whole picture to `fullPhotoURL`. Selecting an avatar opens the whole picture.
+- Objects live at `profile_photos/{uid}/avatar_<timestamp>.jpg` and `profile_photos/{uid}/photo_<timestamp>.jpg`. The timestamp keeps each upload a distinct object, so a cached URL can never resolve to the wrong image.
+- The Firestore write happens only after both uploads succeed. A failed upload leaves the previous photo untouched, and a failed profile write deletes the orphaned objects.
+- Replacing or removing a photo deletes the previous objects when they belong to the application. A Google account photo seeded at sign-in is left alone.
 - The photo is saved immediately and independently of the profile form, since it is not a form field.
 
 ### Contact photos
 
-Contacts in My Sheeps may also carry a photo, stored in Cloud Storage and referenced by `contacts/{contactId}.photoUrl`.
+Contacts in My Sheeps may also carry a photo, stored in Cloud Storage and referenced by `contacts/{contactId}.photoUrl`, with the whole picture in `contacts/{contactId}.fullPhotoUrl`.
 
 - The photo is optional. Without one, the contact shows the default avatar for its gender, which is what the contact list has always used.
-- Objects live at `contact_photos/{contactId}/avatar_<timestamp>.jpg`, following the same upload and cleanup rules as profile photos.
-- A photo picked on the Add or Edit form is staged locally and uploaded when the contact is saved, because a new contact has no document to upload against yet.
+- Objects live at `contact_photos/{contactId}/avatar_<timestamp>.jpg` and `contact_photos/{contactId}/photo_<timestamp>.jpg`, following the same upload and cleanup rules as profile photos.
+- A photo picked on the Add or Edit form is framed by the user, then staged locally and uploaded when the contact is saved, because a new contact has no document to upload against yet.
 - The creator, the discipler who linked the contact, the linked disciple, and outreach partners may change the photo. The picker is hidden for anyone else, so it never fails on a refused permission.
 - Only the linked disciple may change the photo itself; every other field of the contact stays with the people who manage it.
 
@@ -296,6 +297,7 @@ The rest of the application treats the active semester as the current availabili
     "uid": "uid",
     "displayName": "Student Name",
     "photoURL": "https://firebasestorage.googleapis.com/...",
+    "fullPhotoURL": "https://firebasestorage.googleapis.com/...",
     "faculty": "FCSIT",
     "course": "Computer Science",
     "yearOfStudy": 2,

@@ -2,12 +2,15 @@
  * Client-side image preparation for profile and contact photos.
  *
  * Photos are uploaded from phones, where camera captures are frequently 3-8 MB.
- * Every avatar in the app renders at 128px or smaller, so uploading the original
- * file wastes bandwidth and storage for no visible benefit.
+ * Two versions are prepared from one pick:
  *
- * The user frames their own crop in `ImageCropModal`, and this module cuts that
- * region out and downscales it to a fixed edge, producing a small JPEG that any
- * avatar slot can render sharply.
+ * - the full picture, downscaled but never cropped, so it can be opened and
+ *   looked at properly;
+ * - the avatar, the square region the user framed, used everywhere a small
+ *   circular image is shown.
+ *
+ * Both are small JPEGs, so uploading them costs little and every avatar slot
+ * still renders sharply.
  */
 
 /** A rectangle in the source image's own pixels. */
@@ -18,18 +21,22 @@ export interface CropArea {
   height: number;
 }
 
-const TARGET_EDGE_PX = 512;
+const AVATAR_EDGE_PX = 512;
+const FULL_MAX_EDGE_PX = 1600;
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 const JPEG_QUALITY = 0.85;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_INPUT_BYTES = 15 * 1024 * 1024;
 
-export interface ProcessedImage {
-  /** Downsized square JPEG ready for upload. */
-  blob: Blob;
-  width: number;
-  height: number;
-  sizeBytes: number;
+export interface PreparedImages {
+  /** The framed square used for the avatar. */
+  avatar: Blob;
+  /** The whole picture, downscaled. */
+  full: Blob;
+  avatarSize: number;
+  fullSize: number;
+  fullWidth: number;
+  fullHeight: number;
 }
 
 export class ImageProcessingError extends Error {}
@@ -107,13 +114,50 @@ const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
     );
   });
 
+/** Draws a region of the source into a canvas of the given size. */
+const drawRegion = (
+  source: CanvasImageSource,
+  region: { x: number; y: number; width: number; height: number },
+  outputWidth: number,
+  outputHeight: number,
+): HTMLCanvasElement => {
+  const canvas = document.createElement('canvas');
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new ImageProcessingError('Your browser could not process the image.');
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(
+    source,
+    region.x,
+    region.y,
+    region.width,
+    region.height,
+    0,
+    0,
+    outputWidth,
+    outputHeight,
+  );
+
+  return canvas;
+};
+
 /**
- * Cuts the chosen region out of the image and downscales it to a square JPEG.
+ * Prepares both versions of a picked picture.
  *
- * Without a crop the image is center-cropped to a square, which is the fallback
- * for a picture that was never framed by the user.
+ * The avatar is the square the user framed, cut out at a fixed edge. The full
+ * picture keeps its whole frame and aspect ratio, only downscaled, so it can be
+ * opened and looked at properly.
+ *
+ * Without a crop the avatar is center-cropped to a square, which is the
+ * fallback for a picture that was never framed by the user.
  */
-export const processProfileImage = async (file: File, crop?: CropArea): Promise<ProcessedImage> => {
+export const prepareProfileImages = async (file: File, crop?: CropArea): Promise<PreparedImages> => {
   validateProfileImage(file);
 
   const decoded = await decodeImage(file);
@@ -143,47 +187,44 @@ export const processProfileImage = async (file: File, crop?: CropArea): Promise<
         };
       })();
 
-  const outputEdge = Math.max(1, Math.min(Math.round(region.width), TARGET_EDGE_PX));
+  const avatarEdge = Math.max(1, Math.min(Math.round(region.width), AVATAR_EDGE_PX));
 
-  const canvas = document.createElement('canvas');
-  canvas.width = outputEdge;
-  canvas.height = outputEdge;
+  // The full picture is only ever scaled down, never up.
+  const fullScale = Math.min(1, FULL_MAX_EDGE_PX / Math.max(sourceWidth, sourceHeight));
+  const fullWidth = Math.max(1, Math.round(sourceWidth * fullScale));
+  const fullHeight = Math.max(1, Math.round(sourceHeight * fullScale));
 
   try {
-    const context = canvas.getContext('2d');
-    if (!context) {
-      throw new ImageProcessingError('Your browser could not process the image.');
+    const avatarCanvas = drawRegion(decoded.source, region, avatarEdge, avatarEdge);
+    const fullCanvas = drawRegion(
+      decoded.source,
+      { x: 0, y: 0, width: sourceWidth, height: sourceHeight },
+      fullWidth,
+      fullHeight,
+    );
+
+    const [avatar, full] = await Promise.all([
+      canvasToBlob(avatarCanvas),
+      canvasToBlob(fullCanvas),
+    ]);
+
+    // The processed JPEGs should never exceed the rule limit, but guard anyway
+    // so a surprising source image fails here rather than as a rejected upload.
+    for (const blob of [avatar, full]) {
+      if (blob.size > MAX_UPLOAD_BYTES) {
+        throw new ImageProcessingError('That image is too detailed to upload. Try a smaller photo.');
+      }
     }
 
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = 'high';
-    context.drawImage(
-      decoded.source,
-      region.x,
-      region.y,
-      region.width,
-      region.height,
-      0,
-      0,
-      outputEdge,
-      outputEdge,
-    );
+    return {
+      avatar,
+      full,
+      avatarSize: avatar.size,
+      fullSize: full.size,
+      fullWidth,
+      fullHeight,
+    };
   } finally {
     decoded.release?.();
   }
-
-  const blob = await canvasToBlob(canvas);
-
-  // The processed JPEG should never exceed the rule limit, but guard anyway so a
-  // surprising source image fails here rather than as a rejected upload.
-  if (blob.size > MAX_UPLOAD_BYTES) {
-    throw new ImageProcessingError('That image is too detailed to upload. Try a smaller photo.');
-  }
-
-  return {
-    blob,
-    width: outputEdge,
-    height: outputEdge,
-    sizeBytes: blob.size,
-  };
 };

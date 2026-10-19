@@ -218,6 +218,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
                 <ProfilePhotoPicker
                   userId={currentUser.uid}
                   photoURL={currentUser.photoURL}
+                  fullPhotoURL={currentUser.fullPhotoURL}
                   displayName={displayName || currentUser.displayName}
                 />
               </div>
@@ -251,7 +252,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
 
         {enlargedPhoto && currentUser.photoURL && (
           <PhotoLightbox
-            src={currentUser.photoURL}
+            src={currentUser.fullPhotoURL || currentUser.photoURL}
             alt={`${displayName || currentUser.displayName} profile photo`}
             caption={displayName || currentUser.displayName}
             onClose={() => setEnlargedPhoto(false)}
@@ -306,6 +307,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
             <ProfilePhotoPicker
               userId={currentUser.uid}
               photoURL={currentUser.photoURL}
+              fullPhotoURL={currentUser.fullPhotoURL}
               displayName={displayName || currentUser.displayName}
               changeLabel="Upload photo"
             />

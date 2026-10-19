@@ -76,6 +76,7 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
     // Only written when the caller made a decision about the photo. Leaving it
     // undefined keeps the photo already stored on the contact.
     ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl } : {}),
+    ...(input.fullPhotoUrl !== undefined ? { fullPhotoUrl: input.fullPhotoUrl } : {}),
     gospelStatus: input.gospelStatus,
     responseStatuses: input.gospelStatus === 'not_started' ? [] : input.responseStatuses,
     followUpProgress: input.responseStatuses.includes('say_yes_follow_up')

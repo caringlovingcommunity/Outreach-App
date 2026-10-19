@@ -498,10 +498,11 @@ export const OrganizerStudentList: React.FC = () => {
                           <ProfilePhotoPicker
                             userId={selectedStudent.uid}
                             photoURL={selectedStudent.photoURL}
+                            fullPhotoURL={selectedStudent.fullPhotoURL}
                             displayName={selectedStudent.displayName}
                             changeLabel={`Update photo for ${selectedStudent.displayName}`}
-                            onPhotoChanged={(photoURL) => {
-                              setSelectedStudent((previous) => previous ? { ...previous, photoURL } : previous);
+                            onPhotoChanged={(photoURL, fullPhotoURL) => {
+                              setSelectedStudent((previous) => previous ? { ...previous, photoURL, fullPhotoURL } : previous);
                               setStudents((previous) =>
                                 previous.map((student) =>
                                   student.uid === selectedStudent.uid ? { ...student, photoURL } : student,

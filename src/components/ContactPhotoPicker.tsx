@@ -4,17 +4,19 @@ import { PhotoLightbox } from './PhotoLightbox';
 import { ImageCropModal, type CropArea } from './ImageCropModal';
 import type { Gender } from '../types';
 import { getDefaultContactAvatar } from '../utils/contactAvatar';
-import { processProfileImage, validateProfileImage } from '../utils/imageProcessing';
+import { prepareProfileImages, validateProfileImage } from '../utils/imageProcessing';
 
 interface ContactPhotoPickerProps {
   /** Drives which default avatar is shown when there is no photo yet. */
   gender: Gender;
-  /** The photo already saved on the contact, if any. */
+  /** The framed avatar already saved on the contact, if any. */
   photoUrl?: string | null;
+  /** The whole picture, opened when the avatar is selected. */
+  fullPhotoUrl?: string | null;
   /** Local preview of a photo picked but not uploaded yet. */
   pendingPreviewUrl?: string | null;
   /** Called with the cropped image. The parent stages and uploads it. */
-  onPick: (blob: Blob) => void;
+  onPick: (images: { avatar: Blob; full: Blob }) => void;
   /** Called when the user clears the current photo. */
   onRemove: () => void;
   /** True while the form is saving, so the control cannot be used twice. */
@@ -34,6 +36,7 @@ interface ContactPhotoPickerProps {
 export const ContactPhotoPicker: React.FC<ContactPhotoPickerProps> = ({
   gender,
   photoUrl,
+  fullPhotoUrl,
   pendingPreviewUrl,
   onPick,
   onRemove,
@@ -80,9 +83,9 @@ export const ContactPhotoPicker: React.FC<ContactPhotoPickerProps> = ({
     if (!source) return;
 
     try {
-      const processed = await processProfileImage(source.file, crop);
+      const prepared = await prepareProfileImages(source.file, crop);
       URL.revokeObjectURL(source.url);
-      onPick(processed.blob);
+      onPick({ avatar: prepared.avatar, full: prepared.full });
     } catch (error) {
       console.error('Could not crop the contact photo:', error);
       URL.revokeObjectURL(source.url);
@@ -186,7 +189,7 @@ export const ContactPhotoPicker: React.FC<ContactPhotoPickerProps> = ({
 
       {enlarged && displayUrl && (
         <PhotoLightbox
-          src={displayUrl}
+          src={fullPhotoUrl || displayUrl}
           alt={`${contactName} photo`}
           caption={contactName}
           onClose={() => setEnlarged(false)}

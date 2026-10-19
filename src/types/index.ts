@@ -4,7 +4,10 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
+  /** The framed avatar, used in every small circular image. */
   photoURL: string;
+  /** The whole picture, opened when the avatar is selected. */
+  fullPhotoURL?: string;
   role: UserRole;
   visionCastingAccepted?: boolean;
   membershipStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILTERED';
@@ -110,7 +113,10 @@ export interface Contact {
   contactDate?: string;
   phoneNumber?: string;
   gender: Gender;
+  /** The framed avatar, used in every small circular image. */
   photoUrl?: string | null;
+  /** The whole picture, opened when the avatar is selected. */
+  fullPhotoUrl?: string | null;
   gospelStatus: GospelStatus;
   responseStatuses: ResponseStatus[];
   followUpProgress: FollowUpProgress;

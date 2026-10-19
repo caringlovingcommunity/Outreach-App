@@ -3,7 +3,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db, storage } from './firebase';
 
 const PHOTO_ROOT = 'profile_photos';
-const PHOTO_FILE_PREFIX = 'avatar';
+const AVATAR_FILE_PREFIX = 'avatar';
+const FULL_FILE_PREFIX = 'photo';
 const PHOTO_CONTENT_TYPE = 'image/jpeg';
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
@@ -15,12 +16,25 @@ export interface PhotoUploadProgress {
   percent: number;
 }
 
+/** The two versions of a photo: the framed avatar and the whole picture. */
+export interface PhotoImages {
+  avatar: Blob;
+  full: Blob;
+}
+
+export interface UploadedPhoto {
+  /** The avatar URL, stored on `photoURL`. */
+  photoURL: string;
+  /** The whole-picture URL, stored on `fullPhotoURL`. */
+  fullPhotoURL: string;
+}
+
 export class ProfilePhotoError extends Error {}
 
-const buildPhotoRef = (userId: string) => {
+const buildPhotoRef = (userId: string, prefix: string) => {
   // A timestamp in the filename keeps each upload a distinct object, so a cached
   // URL from a previous photo can never resolve to the wrong image.
-  const fileName = `${PHOTO_FILE_PREFIX}_${Date.now()}.jpg`;
+  const fileName = `${prefix}_${Date.now()}.jpg`;
   return ref(storage, `${PHOTO_ROOT}/${userId}/${fileName}`);
 };
 
@@ -59,70 +73,103 @@ const deletePreviousPhotoObject = async (photoURL: string | undefined | null): P
   }
 };
 
+/** Uploads one blob and resolves to its download URL. */
+const uploadBlob = (
+  target: ReturnType<typeof buildPhotoRef>,
+  blob: Blob,
+  onPercent?: (percent: number) => void,
+): Promise<string> => {
+  const uploadTask = uploadBytesResumable(target, blob, {
+    contentType: PHOTO_CONTENT_TYPE,
+    cacheControl: 'private, max-age=0, no-store',
+  });
+
+  return new Promise<string>((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        const percent = snapshot.totalBytes > 0
+          ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+          : 0;
+        onPercent?.(percent);
+      },
+      reject,
+      async () => {
+        try {
+          resolve(await getDownloadURL(uploadTask.snapshot.ref));
+        } catch (error) {
+          reject(error);
+        }
+      },
+    );
+  });
+};
+
 /**
- * Uploads a prepared profile photo and points the public profile document at it.
+ * Uploads a profile photo and points the public profile document at it.
  *
- * The image is cropped and downsized by the caller, so the upload only carries
- * a small JPEG. The Firestore write happens only after the upload succeeds, so
- * a failed upload can never leave the profile pointing at a missing image.
+ * Two objects are stored: the framed avatar, used everywhere a small circular
+ * image is shown, and the whole picture, opened when the avatar is selected.
+ * The Firestore write happens only after both uploads succeed, so a failed
+ * upload can never leave the profile pointing at a missing image.
  */
 export const uploadProfilePhoto = async (
   userId: string,
-  blob: Blob,
+  images: PhotoImages,
   currentPhotoURL: string | undefined | null,
+  currentFullPhotoURL: string | undefined | null,
   onProgress?: (progress: PhotoUploadProgress) => void,
-): Promise<string> => {
+): Promise<UploadedPhoto> => {
   if (!userId) {
     throw new ProfilePhotoError('You must be signed in to change your photo.');
   }
 
-  if (blob.size > MAX_UPLOAD_BYTES) {
-    throw new ProfilePhotoError('That image is too detailed to upload. Try a smaller photo.');
+  for (const blob of [images.avatar, images.full]) {
+    if (blob.size > MAX_UPLOAD_BYTES) {
+      throw new ProfilePhotoError('That image is too detailed to upload. Try a smaller photo.');
+    }
   }
 
   try {
     onProgress?.({ stage: 'uploading', percent: 0 });
 
-    const photoRef = buildPhotoRef(userId);
-    const uploadTask = uploadBytesResumable(photoRef, blob, {
-      contentType: PHOTO_CONTENT_TYPE,
-      cacheControl: 'private, max-age=0, no-store',
-    });
+    // Report the average of the two uploads so one number describes the pair.
+    const percents: Record<string, number> = { avatar: 0, full: 0 };
+    const report = () => {
+      const average = Math.round((percents.avatar + percents.full) / 2);
+      onProgress?.({ stage: 'uploading', percent: average });
+    };
 
-    const downloadURL = await new Promise<string>((resolve, reject) => {
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const percent = snapshot.totalBytes > 0
-            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-            : 0;
-          onProgress?.({ stage: 'uploading', percent });
-        },
-        reject,
-        async () => {
-          try {
-            resolve(await getDownloadURL(uploadTask.snapshot.ref));
-          } catch (error) {
-            reject(error);
-          }
-        },
-      );
-    });
+    const [avatarURL, fullURL] = await Promise.all([
+      uploadBlob(buildPhotoRef(userId, AVATAR_FILE_PREFIX), images.avatar, (percent) => {
+        percents.avatar = percent;
+        report();
+      }),
+      uploadBlob(buildPhotoRef(userId, FULL_FILE_PREFIX), images.full, (percent) => {
+        percents.full = percent;
+        report();
+      }),
+    ]);
 
     onProgress?.({ stage: 'saving', percent: 100 });
 
     try {
-      await updateDoc(doc(db, 'users_public', userId), { photoURL: downloadURL });
+      await updateDoc(doc(db, 'users_public', userId), {
+        photoURL: avatarURL,
+        fullPhotoURL: fullURL,
+      });
     } catch (error) {
       console.error('Photo uploaded but the profile could not be updated:', error);
-      // Roll back the orphaned upload so storage is not left holding an unused object.
-      await deletePreviousPhotoObject(downloadURL);
+      // Roll back the orphaned uploads so storage is not left holding unused objects.
+      await deletePreviousPhotoObject(avatarURL);
+      await deletePreviousPhotoObject(fullURL);
       throw new ProfilePhotoError('Your photo was uploaded but could not be saved. Please try again.');
     }
 
     await deletePreviousPhotoObject(currentPhotoURL);
+    await deletePreviousPhotoObject(currentFullPhotoURL);
 
-    return downloadURL;
+    return { photoURL: avatarURL, fullPhotoURL: fullURL };
   } catch (error) {
     if (error instanceof ProfilePhotoError) throw error;
 
@@ -139,22 +186,27 @@ export const uploadProfilePhoto = async (
 
 /**
  * Clears the profile photo. The document is cleared first so the UI falls back to
- * initials immediately, and the stored object is removed afterwards.
+ * initials immediately, and the stored objects are removed afterwards.
  */
 export const removeProfilePhoto = async (
   userId: string,
   currentPhotoURL: string | undefined | null,
+  currentFullPhotoURL: string | undefined | null,
 ): Promise<void> => {
   if (!userId) {
     throw new ProfilePhotoError('You must be signed in to change your photo.');
   }
 
   try {
-    await updateDoc(doc(db, 'users_public', userId), { photoURL: '' });
+    await updateDoc(doc(db, 'users_public', userId), {
+      photoURL: '',
+      fullPhotoURL: '',
+    });
   } catch (error) {
     console.error('Could not clear the profile photo:', error);
     throw new ProfilePhotoError('Your photo could not be removed. Please try again.');
   }
 
   await deletePreviousPhotoObject(currentPhotoURL);
+  await deletePreviousPhotoObject(currentFullPhotoURL);
 };
