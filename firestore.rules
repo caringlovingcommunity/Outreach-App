@@ -369,7 +369,11 @@ service cloud.firestore {
 
     match /discipleshipTrees/{treeId} {
       allow read: if isAuthenticated();
-      allow create: if isOrganizer() &&
+      // The tree shell is admin-only end to end: creating one, renaming it and
+      // deleting it all rewrite everyone's view of it. Placing people *inside*
+      // a tree is a separate permission — organizers manage those under
+      // `discipleshipNodes` below.
+      allow create: if isAdmin() &&
         request.resource.data.keys().hasOnly([
           'name', 'description', 'createdByUid', 'createdByName', 'createdAt', 'updatedAt'
         ]) &&
@@ -379,8 +383,6 @@ service cloud.firestore {
           (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&
         request.resource.data.createdByUid == request.auth.uid &&
         request.resource.data.createdByName is string;
-      // Renaming or deleting a tree rewrites everyone's view of it, so these are
-      // admin-only even though creating one is open to organizers.
       allow update: if isAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'updatedAt']);
       allow delete: if isAdmin();

@@ -6,6 +6,12 @@ export interface DiscipleshipTreeViewProps {
   forest: DiscipleshipTreeNode[];
   expandedIds: Set<string>;
   onToggleExpanded: (nodeId: string) => void;
+  /**
+   * Whether the viewer may add, move and remove people. Students browse the
+   * tree but never edit it, so the controls are left out entirely rather than
+   * rendered disabled — the backend refuses those writes anyway.
+   */
+  canEditNodes: boolean;
   mode: TreeMode;
   movingNode: DiscipleshipNode | null;
   canDropOn: (node: DiscipleshipNode) => boolean;

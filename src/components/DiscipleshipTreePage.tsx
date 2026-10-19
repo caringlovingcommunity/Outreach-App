@@ -115,8 +115,18 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  /** Editing and deleting a tree rewrites everyone's view of it, so admin only. */
+  /** Creating, editing and deleting a tree is admin-only; placing people inside one is not. */
   const canManageTrees = user.role === 'admin';
+
+  /** Placing, moving and removing people inside a tree. Students only browse. */
+  const canManageNodes = user.role === 'organizer' || user.role === 'admin';
+
+  /**
+   * Cards is admin-only, so organizers always land on the map. Derived rather
+   * than forced into state, so someone whose role drops while the page is open
+   * falls back to the map instead of sitting on a view they cannot reach.
+   */
+  const showCards = canManageTrees && overviewView === 'cards';
 
   const movingNode = useMemo(
     () => (movingNodeId ? nodeById.get(movingNodeId) ?? null : null),
@@ -227,6 +237,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   };
 
   const handleCreateTree = async () => {
+    if (!canManageTrees) return;
     setCreating(true);
     setActionError(null);
     try {
@@ -362,6 +373,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     forest,
     expandedIds,
     onToggleExpanded: toggleExpanded,
+    canEditNodes: canManageNodes,
     mode: movingNode ? 'move' : 'browse',
     movingNode,
     canDropOn,
@@ -379,7 +391,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     },
     onRemove: (node) => setRemovingNode(node),
     onOpenProfile: (node) => {
-      if (overviewView === 'cards') window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (showCards) window.scrollTo({ top: 0, behavior: 'smooth' });
       setProfileNode(node);
     },
     placementTargetId,
@@ -400,34 +412,38 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <h2 className="text-lg font-bold text-text">Your trees</h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="inline-flex w-full rounded-app-md border border-border bg-surface-muted p-0.5 sm:w-auto" role="group" aria-label="Overview layout">
-              <button
-                type="button"
-                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
-                onClick={() => setOverviewView('map')}
-                aria-pressed={overviewView === 'map'}
-              >
-                <Network className="h-3.5 w-3.5" />
-                Map
+            {canManageTrees && (
+              <div className="inline-flex w-full rounded-app-md border border-border bg-surface-muted p-0.5 sm:w-auto" role="group" aria-label="Overview layout">
+                <button
+                  type="button"
+                  className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${overviewView === 'map' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                  onClick={() => setOverviewView('map')}
+                  aria-pressed={overviewView === 'map'}
+                >
+                  <Network className="h-3.5 w-3.5" />
+                  Map
+                </button>
+                <button
+                  type="button"
+                  className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
+                  onClick={() => setOverviewView('cards')}
+                  aria-pressed={overviewView === 'cards'}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Cards
+                </button>
+              </div>
+            )}
+            {canManageTrees && (
+              <button type="button" className="app-button-primary w-full sm:w-auto" onClick={() => setShowCreate((open) => !open)}>
+                <Plus className="h-4 w-4" />
+                New tree
               </button>
-              <button
-                type="button"
-                className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-app-sm px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:flex-none ${overviewView === 'cards' ? 'bg-surface text-primary shadow-app-sm' : 'text-muted hover:text-text'}`}
-                onClick={() => setOverviewView('cards')}
-                aria-pressed={overviewView === 'cards'}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Cards
-              </button>
-            </div>
-            <button type="button" className="app-button-primary w-full sm:w-auto" onClick={() => setShowCreate((open) => !open)}>
-              <Plus className="h-4 w-4" />
-              New tree
-            </button>
+            )}
           </div>
         </div>
 
-        {showCreate && (
+        {canManageTrees && showCreate && (
           <div className="app-panel space-y-3 p-4">
             <div>
               <label className="app-label" htmlFor="tree-name">Tree name</label>
@@ -465,7 +481,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
                 <p className="mt-2 text-sm font-semibold text-text">No trees yet</p>
                 <p className="mt-1 text-sm text-muted">Create your first tree to start placing people.</p>
               </div>
-            ) : overviewView === 'map' ? (
+            ) : !showCards ? (
               <DiscipleshipTreeOverview
                 trees={trees}
                 forestByTree={forestByTree}
@@ -591,7 +607,7 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
       <div className="sticky top-[var(--app-header-height)] z-20 space-y-2 bg-background sm:hidden">
         {renderActionBanner()}
 
-        {!movingNode && !placementTargetName && (
+        {canManageNodes && !movingNode && !placementTargetName && (
           <button
             type="button"
             className="app-button-primary w-full"
@@ -649,7 +665,11 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
             <div className="app-empty-state min-h-40">
               <Network className="h-5 w-5 text-primary" />
               <p className="mt-2 text-sm font-semibold text-text">This tree is empty</p>
-              <p className="mt-1 text-sm text-muted">Pick a person from the panel to place them at the top level.</p>
+              <p className="mt-1 text-sm text-muted">
+                {canManageNodes
+                  ? 'Pick a person from the panel to place them at the top level.'
+                  : 'No one has been placed here yet.'}
+              </p>
             </div>
           ) : view === 'chart' ? (
             <DiscipleshipTreeChart {...treeViewProps} />
@@ -658,17 +678,19 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
           )}
         </div>
 
-        <AddPersonModal
-          treeId={selectedTreeId!}
-          currentUserId={user.uid}
-          placementTargetName={placementTargetName}
-          placedKeys={new Set([...nodeById.values()].map((n) => `${n.nodeType}:${n.refId}`))}
-          onAdd={(candidate) => void handleAddCandidate(candidate)}
-          onClose={() => setShowAddModal(false)}
-          onClearTarget={() => setPlacementTargetId(null)}
-          busy={busy}
-          isOpen={showAddModal}
-        />
+        {canManageNodes && (
+          <AddPersonModal
+            treeId={selectedTreeId!}
+            currentUserId={user.uid}
+            placementTargetName={placementTargetName}
+            placedKeys={new Set([...nodeById.values()].map((n) => `${n.nodeType}:${n.refId}`))}
+            onAdd={(candidate) => void handleAddCandidate(candidate)}
+            onClose={() => setShowAddModal(false)}
+            onClearTarget={() => setPlacementTargetId(null)}
+            busy={busy}
+            isOpen={showAddModal}
+          />
+        )}
       </div>
 
       {removingNode && (

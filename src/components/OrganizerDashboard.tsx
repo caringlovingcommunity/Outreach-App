@@ -26,15 +26,15 @@ type OrganizerTab = 'home' | 'events' | 'student_directory' | 'approvals' | 'fri
 const TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'events', label: 'Outreach Events', icon: PartyPopper },
-  { id: 'approvals', label: 'Member Approvals', icon: ClipboardCheck },
+  { id: 'approvals', label: 'Approvals', icon: ClipboardCheck },
   { id: 'friends', label: 'Friends', icon: Users },
-  { id: 'pairing_helper', label: 'Pairing Helper', icon: Handshake },
-  { id: 'discipleship_trees', label: 'Discipleship Trees', icon: Network },
+  { id: 'pairing_helper', label: 'Pairing', icon: Handshake },
+  { id: 'discipleship_trees', label: 'Tree', icon: Network },
 ];
 
 const ADMIN_TABS: { id: OrganizerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'student_directory', label: 'Directory', icon: Users },
-  { id: 'user_management', label: 'User Management', icon: Shield },
+  { id: 'user_management', label: 'Users', icon: Shield },
 ];
 
 export const OrganizerDashboard: React.FC<OrganizerDashboardProps> = ({ user, logout }) => {

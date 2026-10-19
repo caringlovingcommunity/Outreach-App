@@ -14,7 +14,7 @@ const ChartNode: React.FC<{
 }> = ({ positioned, props }) => {
   const { node, hiddenCount } = positioned;
   const {
-    expandedIds, onToggleExpanded, mode, movingNode, canDropOn,
+    expandedIds, onToggleExpanded, canEditNodes, mode, movingNode, canDropOn,
     onSelectParent, onStartMove, onAddChild, onRemove, onOpenProfile, placementTargetId,
     focusNodeId,
   } = props;
@@ -98,8 +98,9 @@ const ChartNode: React.FC<{
           )}
 
           {/* Phones stay view-only: the frame is too small to aim at these, and
-              the sheet presents the same tree as its editable self. */}
-          {mode === 'browse' && (
+              the sheet presents the same tree as its editable self. Students
+              never edit, so these are left out entirely. */}
+          {canEditNodes && mode === 'browse' && (
             <span className="hidden items-center sm:flex">
               <button type="button" className="app-icon-button size-7" title={`Add someone under ${node.displayName}`} onClick={() => onAddChild(node)}>
                 <Plus className="h-3.5 w-3.5" />

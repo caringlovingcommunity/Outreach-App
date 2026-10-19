@@ -17,7 +17,7 @@ const NodeRow: React.FC<{
 }> = ({ entry, depth, props }) => {
   const { node, children } = entry;
   const {
-    expandedIds, onToggleExpanded, mode, movingNode, canDropOn,
+    expandedIds, onToggleExpanded, canEditNodes, mode, movingNode, canDropOn,
     onSelectParent, onStartMove, onAddChild, onRemove, onOpenProfile, placementTargetId,
     focusNodeId,
   } = props;
@@ -94,7 +94,7 @@ const NodeRow: React.FC<{
           </span>
         </button>
 
-        {mode === 'browse' && (
+        {canEditNodes && mode === 'browse' && (
           <span className="grid w-[6.75rem] shrink-0 grid-cols-3 items-center sm:w-[8.25rem]">
             <button
               type="button"

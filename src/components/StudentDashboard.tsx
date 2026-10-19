@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { CalendarDays, Home, Loader2, Users } from 'lucide-react';
+import { CalendarDays, Home, Loader2, Network, Users } from 'lucide-react';
 import { TopNav, BottomNav } from './NavigationBar';
 import { NavigationDrawer } from './NavigationDrawer';
 import { HomePage } from './HomePage';
@@ -10,18 +10,21 @@ import type { UserProfile } from '../types';
 const StudentEvents = lazy(() => import('./StudentEvents').then((module) => ({ default: module.StudentEvents })));
 const ProfilePage = lazy(() => import('./ProfilePage').then((module) => ({ default: module.ProfilePage })));
 const FriendsPage = lazy(() => import('./FriendsPage').then((module) => ({ default: module.FriendsPage })));
+const DiscipleshipTreePage = lazy(() => import('./DiscipleshipTreePage').then((module) => ({ default: module.DiscipleshipTreePage })));
 
 interface StudentDashboardProps {
   user: UserProfile;
   logout: () => Promise<void>;
 }
 
-type StudentTab = 'home' | 'events' | 'friends' | 'profile';
+type StudentTab = 'home' | 'events' | 'friends' | 'discipleship_trees' | 'profile';
 
 const TABS: { id: StudentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'events', label: 'Outreach Events', icon: CalendarDays },
   { id: 'friends', label: 'Friends', icon: Users },
+  // Read-only here: students can browse every tree but never place people.
+  { id: 'discipleship_trees', label: 'Discipleship Trees', icon: Network },
 ];
 
 const isProfileComplete = (profile: Awaited<ReturnType<typeof getCompleteUserProfile>>) => Boolean(
@@ -155,6 +158,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, logout
               <FriendsPage currentUserId={user.uid} isStudent />
             ) : activeTab === 'events' ? (
               <StudentEvents user={user} />
+            ) : activeTab === 'discipleship_trees' ? (
+              <DiscipleshipTreePage user={user} />
             ) : (
               <HomePage displayName={user.displayName} />
             )}
