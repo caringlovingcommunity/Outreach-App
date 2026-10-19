@@ -84,9 +84,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const role = legacyData.role === 'admin' ? 'admin' : legacyData.role === 'organizer' ? 'organizer' : 'student';
             const appSettings = role === 'student' ? await getAppSettings() : null;
             const autoApproved = role === 'student' && appSettings?.autoApproveMembers === true;
+            const displayName = legacyData.displayName || firebaseUser.displayName || 'User';
             const newPublicProfile = {
               uid: firebaseUser.uid,
-              displayName: legacyData.displayName || firebaseUser.displayName || 'User',
+              displayName,
+              // Kept in sync with displayName for case-insensitive prefix search.
+              displayNameLower: displayName.toLowerCase(),
               photoURL: legacyData.photoURL || firebaseUser.photoURL || '',
               role: role as UserRole,
               visionCastingAccepted: role === 'organizer' || autoApproved,

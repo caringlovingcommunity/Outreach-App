@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { PublicUserProfile } from '../types/user';
 
 const DEFAULT_ELIGIBLE_ROLES: PublicUserProfile['role'][] = ['student', 'organizer'];
+
+/** Upper bound that makes a Firestore range query behave like a prefix match. */
+const SEARCH_RANGE_END = '\uf8ff';
 
 interface UserSearchInputProps {
   currentUserId: string;
@@ -58,7 +61,7 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
 
   // Handle live query on users_public
   useEffect(() => {
-    const term = searchTerm.trim();
+    const term = searchTerm.trim().toLowerCase();
     const browsingAll = browseAllOnFocus && isOpen && !term;
     const minimumQueryLength = browseAllOnFocus ? 1 : 2;
 
@@ -80,9 +83,19 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
       setLoading(true);
       try {
         const usersCollection = collection(db, 'users_public');
-        const q = browseAllOnFocus
-          ? query(usersCollection, where('membershipStatus', '==', 'APPROVED'), limit(100))
-          : query(usersCollection, where('membershipStatus', '==', 'APPROVED'));
+        const nameFilters = term
+          ? [
+              where('displayNameLower', '>=', term),
+              where('displayNameLower', '<=', `${term}${SEARCH_RANGE_END}`),
+            ]
+          : [];
+        const q = query(
+          usersCollection,
+          where('membershipStatus', '==', 'APPROVED'),
+          ...nameFilters,
+          orderBy('displayNameLower', 'asc'),
+          limit(browsingAll ? 100 : 50),
+        );
 
         const [snap, contactsSnap] = await Promise.all([
           getDocs(q),
@@ -103,7 +116,6 @@ export const UserSearchInput: React.FC<UserSearchInputProps> = ({
             data.uid !== currentUserId &&
             eligibleRoles.includes(data.role) &&
             data.membershipStatus === 'APPROVED' &&
-            data.displayName.toLowerCase().includes(term.toLowerCase()) &&
             (allowAlreadyLinkedUsers || !linkedUserIds.has(data.uid)) &&
             !selectedUserIds.has(data.uid)
           ) {

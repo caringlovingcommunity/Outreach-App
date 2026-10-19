@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Edit3, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit3, Loader2, Plus, Search, Trash2, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useContacts } from "../hooks/useContacts";
 import { UserSearchInput } from "./UserSearchInput";
@@ -9,10 +9,18 @@ import { PhotoLightbox } from "./PhotoLightbox";
 import {
   createContact,
   deleteContact,
+  subscribeToContactSearch,
   updateContact,
 } from "../services/contactsService";
 import { removeContactPhoto, uploadContactPhoto } from "../services/contactPhotoService";
 import { getDefaultContactAvatar } from "../utils/contactAvatar";
+import {
+  CONTACT_DATE_BUCKETS as DATE_BUCKETS,
+  CONTACT_RESPONSE_LABELS as responseLabels,
+  getContactDate,
+  getContactDateBucket,
+  type ContactDateBucket,
+} from "../utils/contactSearch";
 import type {
   Contact,
   ContactInput,
@@ -51,56 +59,8 @@ const emptyInput = (): ContactInput => ({
   remarks: "",
 });
 const DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DATE_BUCKETS = [
-  "Upcoming",
-  "Today",
-  "Yesterday",
-  "Last week",
-  "Last month",
-  "Last year",
-  "Older",
-  "Unknown date",
-] as const;
-type ContactDateBucket = typeof DATE_BUCKETS[number];
-
-const getContactDate = (contact: Contact): Date | null => {
-  if (typeof contact.contactDate === "string") {
-    const [year, month, day] = contact.contactDate.split("-").map(Number);
-    const date = new Date(year, month - 1, day, 12);
-    if (
-      Number.isFinite(date.getTime()) &&
-      date.getFullYear() === year &&
-      date.getMonth() === month - 1 &&
-      date.getDate() === day
-    ) {
-      return date;
-    }
-  }
-
-  const createdAt = contact.createdAt;
-  const date =
-    createdAt instanceof Date
-      ? createdAt
-      : typeof createdAt?.toDate === "function"
-        ? createdAt.toDate()
-        : null;
-  return date instanceof Date && Number.isFinite(date.getTime()) ? date : null;
-};
-
-const getContactDateBucket = (date: Date | null, now = new Date()): ContactDateBucket => {
-  if (!date) return "Unknown date";
-  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const contactDay = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  const daysAgo = Math.floor((today - contactDay) / DAY_MS);
-  if (daysAgo < 0) return "Upcoming";
-  if (daysAgo === 0) return "Today";
-  if (daysAgo === 1) return "Yesterday";
-  if (daysAgo <= 7) return "Last week";
-  if (daysAgo <= 30) return "Last month";
-  if (daysAgo <= 365) return "Last year";
-  return "Older";
-};
+const SEARCH_DEBOUNCE_MS = 300;
+const MIN_SEARCH_LENGTH = 2;
 
 const getDateGroups = (contacts: Contact[]) => {
   const groupedContacts = new Map<ContactDateBucket, Contact[]>(
@@ -138,12 +98,6 @@ const canDeleteContactForUser = (
   userId: string | undefined,
   role: string | undefined,
 ) => canDeleteContact(contact) && (contact.createdById === userId || role === "admin");
-const responseLabels: Record<ResponseStatus, string> = {
-  pray_receive_christ: "Prayed to receive Christ",
-  already_christian: "Already Christian",
-  not_ready: "Not ready",
-  say_yes_follow_up: "Said yes to follow-up",
-};
 /**
  * Contact avatar. Uses the uploaded photo when there is one, otherwise the
  * default avatar for the contact's gender.
@@ -202,6 +156,10 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<Contact[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
   /**
@@ -259,24 +217,73 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
     setForm((current) => ({ ...current, photoUrl: null, fullPhotoUrl: null }));
   };
 
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filterContacts = (contacts: Contact[]) => !normalizedSearch
-    ? contacts
-    : contacts.filter((contact) => {
-      const date = getContactDate(contact);
-      const searchableValues = [
-        contact.name,
-        contact.phoneNumber,
-        contact.createdByName,
-        ...contact.responseStatuses.map((response) => responseLabels[response]),
-        contact.gospelStatus.replaceAll("_", " "),
-        date?.toLocaleDateString("en-GB"),
-        getContactDateBucket(date),
-      ];
-      return searchableValues.some((value) => value?.toLowerCase().includes(normalizedSearch));
-    });
-  const filteredOwnContacts = filterContacts(ownContacts);
-  const filteredCommunityContacts = filterContacts(visibleCommunityContacts);
+  // Debounce the search box before querying Firestore.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  /**
+   * Name search runs in Firestore against the normalized `nameLower` field,
+   * matching the AddPersonModal behavior. The snapshot keeps edits and deletes
+   * reflected without refetching the whole contacts collection.
+   */
+  useEffect(() => {
+    const term = debouncedSearchTerm.trim();
+    if (!term) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      setSearchError(null);
+      return;
+    }
+    if (term.length < MIN_SEARCH_LENGTH) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError(null);
+      return;
+    }
+
+    setSearchResults(null);
+    setSearchLoading(true);
+    setSearchError(null);
+    return subscribeToContactSearch(
+      term,
+      (contacts) => {
+        setSearchResults(contacts);
+        setSearchLoading(false);
+      },
+      () => {
+        setSearchError("Unable to search contacts. Please try again.");
+        setSearchLoading(false);
+      },
+    );
+  }, [debouncedSearchTerm]);
+
+  const typedSearch = searchTerm.trim();
+  const hasSearchTerm = typedSearch.length > 0;
+  const searchTooShort = hasSearchTerm && typedSearch.length < MIN_SEARCH_LENGTH;
+  const isSearchReady = debouncedSearchTerm.trim().length >= MIN_SEARCH_LENGTH;
+  const isSearchPending = typedSearch !== debouncedSearchTerm.trim();
+  const showSearchLoading = hasSearchTerm && !searchTooShort && (isSearchPending || searchLoading);
+
+  const myContactIds = new Set(myContacts.map((contact) => contact.id));
+  const isOwnContact = (contact: Contact) => contact.linkedByUid !== user?.uid
+    || Boolean(user?.uid && contact.outreachPartnerIds?.includes(user.uid));
+  const isVisibleCommunityContact = (contact: Contact) => contact.createdById !== user?.uid
+    && !contact.linkedUserId;
+
+  const filteredOwnContacts = !hasSearchTerm
+    ? ownContacts
+    : isSearchReady
+      ? (searchResults ?? []).filter(
+          (contact) => myContactIds.has(contact.id) && isOwnContact(contact),
+        )
+      : [];
+  const filteredCommunityContacts = !hasSearchTerm
+    ? visibleCommunityContacts
+    : isSearchReady
+      ? (searchResults ?? []).filter(isVisibleCommunityContact)
+      : [];
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -655,7 +662,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       </div>
       {contacts.length === 0 ? (
         <p className="border-y border-border py-8 text-center text-sm text-muted">
-          {normalizedSearch ? "No matching contacts." : "No contacts in this group."}
+          {hasSearchTerm ? "No matching contacts." : "No contacts in this group."}
         </p>
       ) : (
         <div className="mt-2 space-y-5">
@@ -739,24 +746,41 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
         </button>
       </div>
       {success && <div className="app-alert-success">{success}</div>}
-      {(error || saveError) && (
-        <div className="app-alert-error">{error || saveError}</div>
+      {(error || saveError || searchError) && (
+        <div className="app-alert-error">{error || saveError || searchError}</div>
       )}
       <label className="relative block">
-        <span className="sr-only">Search sheep contacts</span>
+        <span className="sr-only">Search contacts</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" aria-hidden="true" />
         <input
           type="search"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search sheep contacts"
-          className="app-input pl-10"
+          placeholder="Search contacts, phone, or status"
+          className="app-input pl-10 pr-10"
         />
+        {showSearchLoading && (
+          <Loader2
+            className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-muted"
+            aria-hidden="true"
+          />
+        )}
       </label>
-      <div className="space-y-8">
-        {renderDateSection("My Contacts", filteredOwnContacts)}
-        {renderDateSection("Community Contacts", filteredCommunityContacts, true)}
-      </div>
+      {searchTooShort ? (
+        <p className="text-sm text-muted">
+          Type at least {MIN_SEARCH_LENGTH} characters to search.
+        </p>
+      ) : showSearchLoading ? (
+        <div className="flex min-h-32 items-center justify-center text-muted" role="status">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+          <span className="sr-only">Searching contacts…</span>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {renderDateSection("My Contacts", filteredOwnContacts)}
+          {renderDateSection("Community Contacts", filteredCommunityContacts, true)}
+        </div>
+      )}
     </section>
       {showForm && (
         <section className="page-view-fade mx-auto max-w-5xl pb-6">

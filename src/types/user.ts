@@ -18,6 +18,8 @@ export type MembershipStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILTERED';
 export interface PublicUserProfile {
   uid: string;
   displayName: string;
+  /** Lowercased displayName, used for case-insensitive prefix search. */
+  displayNameLower?: string;
   /** The framed avatar, used in every small circular image. */
   photoURL?: string;
   /** The whole picture, opened when the avatar is selected. */

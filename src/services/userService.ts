@@ -47,10 +47,13 @@ export const updateUserProfile = async (
 
   const publicRef = doc(db, 'users_public', userId);
   const privateRef = doc(db, 'users_private', userId);
+  const displayName = input.displayName.trim();
 
   // 1. Separate inputs into Public vs Private payloads
   const publicData: Partial<PublicUserProfile> = sanitizePayload({
-    displayName: input.displayName.trim(),
+    displayName,
+    // Kept in sync with displayName for case-insensitive prefix search.
+    displayNameLower: displayName.toLowerCase(),
     faculty: input.faculty,
     course: input.course?.trim(),
     yearOfStudy: input.yearOfStudy,

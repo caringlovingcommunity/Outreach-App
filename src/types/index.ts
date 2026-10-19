@@ -110,6 +110,10 @@ export interface Contact {
   createdById: string;
   createdByName: string;
   name: string;
+  /** Lowercased name, used for case-insensitive prefix search. */
+  nameLower?: string;
+  /** Denormalized prefixes for name, phone, creator, status, responses, and dates. */
+  searchTerms?: string[];
   contactDate?: string;
   phoneNumber?: string;
   gender: Gender;

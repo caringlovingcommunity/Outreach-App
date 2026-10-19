@@ -586,9 +586,12 @@ export interface TreeCandidate {
   phone?: string | null;
 }
 
+/** Upper bound that makes a Firestore range query behave like a prefix match. */
+const SEARCH_RANGE_END = '\uf8ff';
+
 /**
  * Searches for placeable candidates (approved members + contacts) by name.
- * Excludes people already placed in the given tree.
+ * Excludes anyone already placed in any tree.
  * Returns paginated results for the modal search.
  */
 export const searchPlaceableCandidates = async (
@@ -604,30 +607,52 @@ export const searchPlaceableCandidates = async (
   const placedNodes = await getAllTreeNodes();
   const placedKeys = new Set(placedNodes.map((n) => `${n.nodeType}:${n.refId}`));
 
-  // Search approved members
+  // The query text is sent to Firestore and matched against the normalized name
+  // fields (written alongside displayName/name), so only matching documents are
+  // read. An empty term lists everyone, preserving the browse-on-open behavior.
+  const memberNameFilters = searchTerm
+    ? [
+        where('displayNameLower', '>=', searchTerm),
+        where('displayNameLower', '<=', `${searchTerm}${SEARCH_RANGE_END}`),
+      ]
+    : [];
+
   const membersQuery = query(
-    collection(db, 'users_public'),
+    usersPublicCollection,
     where('membershipStatus', '==', 'APPROVED'),
-    orderBy('displayName', 'asc'),
+    ...memberNameFilters,
+    orderBy('displayNameLower', 'asc'),
     ...(membersCursor ? [startAfter(membersCursor)] : []),
-    limit(pageLimit + 5) // fetch extra to account for filtering
+    limit(pageLimit + 1) // one extra tells us whether another page exists
   );
   const membersSnap = await getDocs(membersQuery);
 
+  const contactNameFilters = searchTerm
+    ? [
+        where('nameLower', '>=', searchTerm),
+        where('nameLower', '<=', `${searchTerm}${SEARCH_RANGE_END}`),
+      ]
+    : [];
+
   // Search contacts (community contacts for the organizer)
   const contactsQuery = query(
-    collection(db, 'contacts'),
-    orderBy('createdAt', 'desc'),
+    contactsCollection,
+    ...contactNameFilters,
+    orderBy('nameLower', 'asc'),
     ...(contactsCursor ? [startAfter(contactsCursor)] : []),
-    limit(pageLimit + 5)
+    limit(pageLimit + 1)
   );
   const contactsSnap = await getDocs(contactsQuery);
+
+  const membersHasMore = membersSnap.docs.length > pageLimit;
+  const contactsHasMore = contactsSnap.docs.length > pageLimit;
+  const memberDocs = membersHasMore ? membersSnap.docs.slice(0, pageLimit) : membersSnap.docs;
+  const contactDocs = contactsHasMore ? contactsSnap.docs.slice(0, pageLimit) : contactsSnap.docs;
 
   const toMemberCandidate = (docSnap: { id: string; data: () => Record<string, unknown> }): TreeCandidate | null => {
     const data = docSnap.data() as { uid: string; displayName: string; photoURL?: string; role: string; membershipStatus: string; phone?: string };
     const refKey = `user:${data.uid}`;
     if (placedKeys.has(refKey)) return null;
-    if (searchTerm && !data.displayName.toLowerCase().includes(searchTerm)) return null;
     return {
       nodeType: 'user',
       refId: data.uid,
@@ -643,7 +668,6 @@ export const searchPlaceableCandidates = async (
     const data = docSnap.data() as { name: string; photoUrl?: string; gender: string; outreachPartnerNames?: string[]; gospelStatus?: string; phoneNumber?: string };
     const refKey = `contact:${docSnap.id}`;
     if (placedKeys.has(refKey)) return null;
-    if (searchTerm && !data.name.toLowerCase().includes(searchTerm)) return null;
     const partner = data.outreachPartnerNames?.length ? ` · ${data.outreachPartnerNames.length} partner(s)` : '';
     return {
       nodeType: 'contact',
@@ -656,20 +680,22 @@ export const searchPlaceableCandidates = async (
     };
   };
 
-  const members = membersSnap.docs.map(toMemberCandidate).filter((c): c is TreeCandidate => c !== null);
-  const contacts = contactsSnap.docs.map(toContactCandidate).filter((c): c is TreeCandidate => c !== null);
+  const members = memberDocs.map(toMemberCandidate).filter((c): c is TreeCandidate => c !== null);
+  const contacts = contactDocs.map(toContactCandidate).filter((c): c is TreeCandidate => c !== null);
 
   // Drop contacts whose phone matches a member — the member tab wins.
   const memberPhones = new Set(members.map((m) => m.phone).filter(Boolean));
   const dedupedContacts = contacts.filter((c) => !c.phone || !memberPhones.has(c.phone));
 
-  const membersCursorNext = membersSnap.docs.length > 0 ? membersSnap.docs[membersSnap.docs.length - 1] : null;
-  const contactsCursorNext = contactsSnap.docs.length > 0 ? contactsSnap.docs[contactsSnap.docs.length - 1] : null;
+  // Keep the previous cursor when a collection is exhausted so a "load more"
+  // triggered by the other tab cannot restart that collection from page one.
+  const membersCursorNext = memberDocs.length > 0 ? memberDocs[memberDocs.length - 1] : membersCursor;
+  const contactsCursorNext = contactDocs.length > 0 ? contactDocs[contactDocs.length - 1] : contactsCursor;
 
   return {
     members,
     contacts: dedupedContacts,
-    hasMore: members.length >= pageLimit || contacts.length >= pageLimit,
+    hasMore: membersHasMore || contactsHasMore,
     membersCursor: membersCursorNext,
     contactsCursor: contactsCursorNext,
   };

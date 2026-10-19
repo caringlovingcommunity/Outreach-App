@@ -17,6 +17,7 @@ import { db } from './firebase';
 import { JOURNEY_OF_FAITH_STEPS } from '../types';
 import type { Contact, ContactInput, FollowUpProgress } from '../types';
 import type { PublicUserProfile } from '../types/user';
+import { buildContactSearchTerms, normalizeContactSearchValue } from '../utils/contactSearch';
 
 const contactsCollection = collection(db, 'contacts');
 
@@ -56,6 +57,7 @@ const emptyFollowUpProgress = (): FollowUpProgress => Object.fromEntries(
 ) as unknown as FollowUpProgress;
 
 const toPayload = (input: ContactInput, createdById: string, createdByName: string) => {
+  const name = input.name.trim();
   const phoneNumber = cleanOptional(input.phoneNumber);
   const remarks = cleanOptional(input.remarks);
   const outreachPartners = new Map<string, string>();
@@ -69,7 +71,19 @@ const toPayload = (input: ContactInput, createdById: string, createdByName: stri
   return {
     createdById,
     createdByName,
-    name: input.name.trim(),
+    name,
+    // Kept in sync with name for case-insensitive prefix search.
+    nameLower: name.toLowerCase(),
+    // Denormalized index used by the MySheeps contact search.
+    searchTerms: buildContactSearchTerms({
+      name,
+      phoneNumber,
+      createdByName,
+      responseStatuses: input.responseStatuses,
+      gospelStatus: input.gospelStatus,
+      contactDate: input.contactDate,
+      createdAt: new Date(),
+    }),
     ...(input.contactDate ? { contactDate: input.contactDate } : {}),
     ...(phoneNumber ? { phoneNumber } : {}),
     gender: input.gender,
@@ -150,6 +164,28 @@ export const getCommunityContacts = async (): Promise<Contact[]> => {
 export const getContactById = async (contactId: string): Promise<Contact | null> => {
   const contactSnapshot = await getDoc(doc(db, 'contacts', contactId));
   return contactSnapshot.exists() ? mapContact(contactSnapshot) : null;
+};
+
+/**
+ * Live, case-insensitive name search backed by Firestore's `nameLower` field.
+ * Only matching contacts are read; results stay in sync with edits/deletes.
+ */
+export const subscribeToContactSearch = (
+  searchQuery: string,
+  onChange: (contacts: Contact[]) => void,
+  onError: (error: Error) => void,
+) => {
+  const searchTerm = normalizeContactSearchValue(searchQuery);
+  const searchQueryRef = query(
+    contactsCollection,
+    where('searchTerms', 'array-contains', searchTerm),
+  );
+
+  return onSnapshot(
+    searchQueryRef,
+    (snapshot) => onChange(snapshot.docs.map(mapContact)),
+    onError,
+  );
 };
 
 export const subscribeToContacts = (

@@ -26,8 +26,9 @@ interface AddPersonModalProps {
   isOpen: boolean;
 }
 
-const DEBOUNCE_MS = 300;
-const PAGE_SIZE = 20;
+const DEBOUNCE_MS = 150;
+const PAGE_SIZE = 50;
+const MIN_SEARCH_LENGTH = 2;
 
 type Tab = 'members' | 'contacts';
 
@@ -93,6 +94,19 @@ export const AddPersonModal: React.FC<AddPersonModalProps> = ({
         if (!cancelled) setLoading(false);
       }
     };
+
+    // Only fetch if debounced term meets minimum search length, or if it's empty (show default state)
+    if (debouncedTerm && debouncedTerm.length < MIN_SEARCH_LENGTH) {
+      // Term is too short — clear results but keep loading state hidden
+      if (!cancelled) {
+        setMembers([]);
+        setContacts([]);
+        setHasMore(false);
+        setMembersCursor(null);
+        setContactsCursor(null);
+      }
+      return;
+    }
 
     fetch();
     return () => { cancelled = true; };

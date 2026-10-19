@@ -93,7 +93,7 @@ service cloud.firestore {
             request.resource.data.membershipStatus == 'APPROVED'));
       allow update: if isOwner(userId) &&
         request.resource.data.uid == resource.data.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'fullPhotoURL', 'faculty', 'course', 'yearOfStudy']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'displayNameLower', 'photoURL', 'fullPhotoURL', 'faculty', 'course', 'yearOfStudy']) &&
         request.resource.data.role == resource.data.role &&
         request.resource.data.visionCastingAccepted == resource.data.visionCastingAccepted &&
         request.resource.data.membershipStatus == resource.data.membershipStatus &&
@@ -218,13 +218,17 @@ service cloud.firestore {
 
     function validContact(data, validatePartnerLists) {
       return data.keys().hasOnly([
-          'createdById', 'createdByName', 'name', 'phoneNumber', 'gender',
+          'createdById', 'createdByName', 'name', 'nameLower', 'searchTerms', 'phoneNumber', 'gender',
           'photoUrl', 'fullPhotoUrl', 'gospelStatus', 'responseStatuses', 'followUpProgress',
           'remarks', 'createdAt', 'updatedAt', 'linkedUserId', 'linkedAt', 'linkedByUid',
           'outreachPartnerIds', 'outreachPartnerNames', 'contactDate'
         ]) &&
         data.createdById is string && data.createdByName is string &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        // Optional so contacts created by older app versions remain writable
+        // until they are updated or backfilled.
+        (!('searchTerms' in data) ||
+          (data.searchTerms is list && data.searchTerms.size() <= 1000)) &&
         (!('contactDate' in data) ||
           (data.contactDate is string &&
             data.contactDate.size() == 10 &&
@@ -329,7 +333,7 @@ service cloud.firestore {
         contactIdentityUnchanged() &&
         (
           (isContactPartner() && changedFields().hasOnly([
-            'name', 'contactDate', 'phoneNumber', 'gender', 'photoUrl', 'fullPhotoUrl',
+            'name', 'nameLower', 'searchTerms', 'contactDate', 'phoneNumber', 'gender', 'photoUrl', 'fullPhotoUrl',
             'gospelStatus', 'responseStatuses', 'followUpProgress', 'remarks', 'updatedAt'
           ])) ||
           (isContactDisciple() && changedFields().hasOnly(['photoUrl', 'fullPhotoUrl', 'updatedAt']))
