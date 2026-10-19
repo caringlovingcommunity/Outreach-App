@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -18,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import type { DocumentSnapshot, QueryDocumentSnapshot, Transaction } from 'firebase/firestore';
 import { db } from './firebase';
-import type { CreateTreeInput, AddNodeInput, DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../types/discipleship';
+import type { CreateTreeInput, UpdateTreeInput, AddNodeInput, DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../types/discipleship';
 
 const treesCollection = collection(db, 'discipleshipTrees');
 const nodesCollection = collection(db, 'discipleshipNodes');
@@ -138,6 +139,19 @@ export const createTree = async (input: CreateTreeInput, user: { uid: string; di
     updatedAt: serverTimestamp(),
   });
   return ref.id;
+};
+
+export const updateTree = async (treeId: string, input: UpdateTreeInput): Promise<void> => {
+  const name = input.name.trim();
+  if (!name) throw new Error('Tree name is required.');
+  const description = input.description?.trim() ?? '';
+  await updateDoc(doc(treesCollection, treeId), {
+    name,
+    // An emptied description is removed rather than blanked, so the document
+    // keeps the shape `createTree` writes and `mapTree` reads.
+    description: description || deleteField(),
+    updatedAt: serverTimestamp(),
+  });
 };
 
 export const subscribeToTrees = (

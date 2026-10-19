@@ -54,6 +54,11 @@ export interface CreateTreeInput {
   description?: string;
 }
 
+export interface UpdateTreeInput {
+  name: string;
+  description?: string;
+}
+
 export interface AddNodeInput {
   treeId: string;
   nodeType: DiscipleshipNodeType;

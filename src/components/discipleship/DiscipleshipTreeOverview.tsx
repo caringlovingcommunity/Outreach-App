@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Maximize2, Network, UserRound, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronDown, ChevronRight, Network, UserRound } from 'lucide-react';
 import { layoutForest, type Layout, type PositionedNode } from './treeLayout';
 import type { TreeOverviewStats } from '../../hooks/useDiscipleshipTree';
 import type { DiscipleshipNode, DiscipleshipTreeNode, DiscipleshipTree } from '../../types/discipleship';
@@ -11,7 +11,6 @@ const NODE_WIDTH_MAX = 340;
 const NODE_HEIGHT = 60;
 const H_GAP = 14;
 const V_GAP = 46;
-const TREE_GAP = 44;
 const HEADER_HEIGHT = 54;
 const EMPTY_TREE_HEIGHT = 120;
 /** Chrome around the name: px-2 paddings, avatar, gap, fold control. */
@@ -19,14 +18,15 @@ const NAME_CHROME_WIDTH = 80;
 const NAME_FONT_WEIGHT = 600;
 const NAME_FONT_SIZE = 12;
 /**
- * The canvas shrinks until every tree fits the panel, but only so far. Below
- * roughly 70% the 10-12px labels stop being readable at all — a 12px line lands
- * near 8px, and past that it is grey mush rather than text — so past the floor
- * the panel scrolls sideways instead, which is what it did originally.
+ * A panel scales its canvas until the whole tree fits its width, so a card
+ * shows its tree in full and never needs sideways scrolling to be read as a
+ * whole. Fitting a wide tree does soften the 10-12px labels, which is the trade
+ * for seeing the shape of every tree at once.
+ *
+ * `MIN_SCALE` only covers the first paint, before the observer has reported a
+ * width: collapsing to it keeps the canvas inside its card for that frame.
  */
-const MIN_FIT_SCALE = 0.7;
-/** Each tap on +/− moves the zoom by this much, matching the detail chart. */
-const ZOOM_STEP = 1.25;
+const MIN_SCALE = 0.05;
 
 const EMPTY_LAYOUT: Layout = { nodes: [], edges: [], width: NODE_WIDTH_MIN, height: EMPTY_TREE_HEIGHT };
 
@@ -72,10 +72,12 @@ interface TreeBlock {
   tree: DiscipleshipTree;
   stats?: TreeOverviewStats;
   layout: Layout;
-  left: number;
-  width: number;
   /** Tile width for this tree, sized to its longest name. */
   nodeWidth: number;
+  /** Canvas width for this tree alone — the panel is sized to its own content. */
+  width: number;
+  /** Canvas height for this tree alone, so a panel is only as tall as it needs. */
+  height: number;
 }
 
 interface DiscipleshipTreeOverviewProps {
@@ -87,10 +89,7 @@ interface DiscipleshipTreeOverviewProps {
   /** Node ids folded in the map. Global ids, so one set covers every tree. */
   collapsedIds: Set<string>;
   onToggleCollapse: (nodeId: string) => void;
-  /** Node whose drawer is open, kept ringed so the map keeps context. */
-  activeNodeId?: string | null;
   onOpenTree: (treeId: string) => void;
-  onOpenNode: (node: DiscipleshipNode) => void;
 }
 
 const OverviewNode: React.FC<{
@@ -98,11 +97,9 @@ const OverviewNode: React.FC<{
   treeName: string;
   nodeWidth: number;
   duplicateTreeCount: number;
-  isActive: boolean;
   isCollapsed: boolean;
-  onOpen: (node: DiscipleshipNode) => void;
   onToggleCollapse: (nodeId: string) => void;
-}> = ({ positioned, treeName, nodeWidth, duplicateTreeCount, isActive, isCollapsed, onOpen, onToggleCollapse }) => {
+}> = ({ positioned, treeName, nodeWidth, duplicateTreeCount, isCollapsed, onToggleCollapse }) => {
   const { node, hiddenCount, childCount } = positioned;
   const isMember = node.nodeType === 'user';
   const hasChildren = childCount > 0;
@@ -111,19 +108,16 @@ const OverviewNode: React.FC<{
 
   return (
     <div
-      className={`absolute flex items-stretch overflow-hidden rounded-app-md border bg-surface text-left transition-colors ${
-        isActive ? 'border-primary ring-2 ring-primary ring-offset-1'
-          : duplicateTreeCount > 1 ? 'border-primary-muted hover:border-primary'
-            : 'border-border hover:border-primary'
+      className={`absolute flex items-stretch overflow-hidden rounded-app-md border bg-surface text-left ${
+        duplicateTreeCount > 1 ? 'border-primary-muted' : 'border-border'
       }`}
       style={{ left: positioned.x - nodeWidth / 2, top: positioned.y, width: nodeWidth, height: NODE_HEIGHT }}
     >
-      {/* The fold control is a sibling, not a nested button — nesting is invalid HTML. */}
-      <button
-        type="button"
-        className="flex min-w-0 flex-1 items-center gap-2 px-2 text-left"
-        onClick={() => onOpen(node)}
-        title={`${node.displayName} — ${isMember ? 'Member' : 'Contact'} in ${treeName}${hiddenLabel}${duplicateLabel}\nOpen profile`}
+      {/* A tile is a preview, not a target: the whole card opens the tree, so
+          the only control a tile carries is the fold one. */}
+      <span
+        className="flex min-w-0 flex-1 items-center gap-2 px-2"
+        title={`${node.displayName} — ${isMember ? 'Member' : 'Contact'} in ${treeName}${hiddenLabel}${duplicateLabel}`}
       >
         <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft text-[10px] font-bold text-primary">
           {node.photoUrl
@@ -138,12 +132,14 @@ const OverviewNode: React.FC<{
             {isMember ? 'Member' : 'Contact'}{hiddenLabel}{duplicateLabel}
           </span>
         </span>
-      </button>
+      </span>
 
       {hasChildren && (
         <button
           type="button"
-          className="flex w-9 shrink-0 items-center justify-center border-l border-border/70 text-muted transition-colors hover:bg-primary-soft hover:text-primary sm:w-6"
+          // The card's own button covers this preview, so the fold control opts
+          // back into pointer events and sits above it to keep the tap.
+          className="pointer-events-auto relative z-30 flex w-9 shrink-0 items-center justify-center border-l border-border/70 text-muted transition-colors hover:bg-primary-soft hover:text-primary sm:w-6"
           onClick={() => onToggleCollapse(node.id)}
           aria-expanded={!isCollapsed}
           aria-label={isCollapsed ? `Expand ${node.displayName}` : `Collapse ${node.displayName}`}
@@ -156,7 +152,8 @@ const OverviewNode: React.FC<{
   );
 };
 
-const TreeHeader: React.FC<{ block: TreeBlock; onOpenTree: (treeId: string) => void }> = ({ block, onOpenTree }) => {
+/** Heading only — the card underneath it is what opens the tree. */
+const TreeHeader: React.FC<{ block: TreeBlock }> = ({ block }) => {
   const { tree, stats } = block;
   const total = stats?.total ?? 0;
   const roots = stats?.rootCount ?? 0;
@@ -164,15 +161,12 @@ const TreeHeader: React.FC<{ block: TreeBlock; onOpenTree: (treeId: string) => v
   const contacts = stats?.contactCount ?? 0;
 
   return (
-    <button
-      type="button"
-      className="group flex w-full items-start justify-between gap-2 text-left"
+    <div
+      className="flex w-full items-start justify-between gap-2 text-left"
       style={{ height: HEADER_HEIGHT }}
-      onClick={() => onOpenTree(tree.id)}
-      title={`Open ${tree.name}`}
     >
       <span className="min-w-0">
-        <span className="flex items-center gap-1.5 text-sm font-bold text-text group-hover:text-primary">
+        <span className="flex items-center gap-1.5 text-sm font-bold text-text transition-colors group-hover:text-primary">
           <Network className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span className="truncate">{tree.name}</span>
         </span>
@@ -181,7 +175,72 @@ const TreeHeader: React.FC<{ block: TreeBlock; onOpenTree: (treeId: string) => v
         </span>
       </span>
       <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted transition-colors group-hover:text-primary" />
-    </button>
+    </div>
+  );
+};
+
+/**
+ * One tree, one card: a fitted preview of the whole tree that opens that
+ * tree's page. Each card measures its own width rather than sharing one, so the
+ * fit follows whichever column the app is rendering in.
+ */
+const TreePanel: React.FC<{
+  block: TreeBlock;
+  onOpenTree: (treeId: string) => void;
+  /** Drawn in canvas coordinates, inside the scaled box. */
+  children: React.ReactNode;
+}> = ({ block, onOpenTree, children }) => {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [panelWidth, setPanelWidth] = useState(0);
+
+  // Measured, not assumed: cards are full-bleed on a phone and sit inside the
+  // page padding on desktop, so the fit has to follow the real width.
+  useEffect(() => {
+    const element = frameRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setPanelWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const { width, height } = block;
+  // `contentRect` is already the padding-excluded inner width. The fit is
+  // whatever it takes to show the whole tree; `MIN_SCALE` only covers the first
+  // paint, before the observer has reported anything.
+  const scale = panelWidth > 0 && width > 0 ? Math.min(panelWidth / width, 1) : MIN_SCALE;
+
+  return (
+    <section className="group relative rounded-app-md border border-border bg-surface-muted/40 p-3 transition-colors hover:border-primary-muted">
+      {/* The card's own target. It lies over the preview so the whole panel
+          opens the tree, and the preview is transparent to pointer events, so
+          the fold controls on top of it stay the only other thing you can tap.
+          A sibling rather than a wrapper, because a button inside a button is
+          invalid HTML. */}
+      <button
+        type="button"
+        className="absolute inset-0 z-20 rounded-app-md"
+        onClick={() => onOpenTree(block.tree.id)}
+        aria-label={`Open ${block.tree.name}`}
+        title={`Open ${block.tree.name}`}
+      />
+
+      <div className="pointer-events-none relative">
+        <TreeHeader block={block} />
+
+        {/* The outer box is the layout size and the inner box does the scaling,
+            so a card is only as tall as its own tree needs. */}
+        <div ref={frameRef}>
+          <div className="relative mx-auto" style={{ width: width * scale, height: height * scale }}>
+            <div
+              className="relative origin-top-left"
+              style={{ width, height, transform: `scale(${scale})` }}
+            >
+              {children}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -192,25 +251,8 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
   duplicateTreeCounts,
   collapsedIds,
   onToggleCollapse,
-  activeNodeId,
   onOpenTree,
-  onOpenNode,
 }) => {
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [panelWidth, setPanelWidth] = useState(0);
-  /** User zoom over the fit scale. 1 is "fitted"; never scales past 1x. */
-  const [zoom, setZoom] = useState(1);
-
-  // Measured, not assumed: the panel is full-bleed on a phone and sits inside
-  // the page padding on desktop, so the fit scale has to follow the real width.
-  useEffect(() => {
-    const element = scrollerRef.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setPanelWidth(entry.contentRect.width));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
   // Clean up the module-level nameWidthCache on unmount to prevent memory leaks
   // in long-running sessions where trees are switched frequently.
   useEffect(() => {
@@ -248,183 +290,86 @@ export const DiscipleshipTreeOverview: React.FC<DiscipleshipTreeOverviewProps> =
     return widths;
   }, [forestByTree]);
 
-  const blocks = useMemo<TreeBlock[]>(() => {
-    const entries = trees.map((tree) => {
-      const forest = forestByTree.get(tree.id) ?? [];
-      const nodeWidth = nodeWidthByTree.get(tree.id) ?? NODE_WIDTH_MIN;
-      const layout = forest.length
-        ? layoutForest(forest, expandedByTree.get(tree.id) ?? new Set<string>(), {
-          nodeWidth,
-          nodeHeight: NODE_HEIGHT,
-          hGap: H_GAP,
-          vGap: V_GAP,
-        })
-        : EMPTY_LAYOUT;
-      return {
-        tree,
-        stats: overviewByTree.get(tree.id),
-        layout,
+  // Each tree becomes its own panel, so a block only carries what that tree's
+  // canvas needs — there is no shared canvas to position it inside.
+  const blocks = useMemo<TreeBlock[]>(() => trees.map((tree) => {
+    const forest = forestByTree.get(tree.id) ?? [];
+    const nodeWidth = nodeWidthByTree.get(tree.id) ?? NODE_WIDTH_MIN;
+    const layout = forest.length
+      ? layoutForest(forest, expandedByTree.get(tree.id) ?? new Set<string>(), {
         nodeWidth,
-        width: Math.max(layout.width, nodeWidth),
-      };
-    });
+        nodeHeight: NODE_HEIGHT,
+        hGap: H_GAP,
+        vGap: V_GAP,
+      })
+      : EMPTY_LAYOUT;
+    return {
+      tree,
+      stats: overviewByTree.get(tree.id),
+      layout,
+      nodeWidth,
+      width: Math.max(layout.width, nodeWidth),
+      height: layout.nodes.length ? layout.height : EMPTY_TREE_HEIGHT,
+    };
+  }), [trees, forestByTree, overviewByTree, expandedByTree, nodeWidthByTree]);
 
-    // Tree count is small (tens), so prefix sums keep this mutation-free and clear.
-    return entries.map((entry, index) => ({
-      ...entry,
-      left: entries.slice(0, index).reduce((sum, previous) => sum + previous.width + TREE_GAP, 0),
-    }));
-  }, [trees, forestByTree, overviewByTree, expandedByTree, nodeWidthByTree]);
-
-  const totalWidth = blocks.length ? blocks[blocks.length - 1].left + blocks[blocks.length - 1].width : 0;
-  const maxContentHeight = blocks.reduce(
-    (tallest, block) => Math.max(tallest, block.layout.nodes.length ? block.layout.height : EMPTY_TREE_HEIGHT),
-    EMPTY_TREE_HEIGHT,
-  );
-  const canvasHeight = HEADER_HEIGHT + maxContentHeight;
   const peopleShown = blocks.reduce((total, block) => total + block.layout.nodes.length, 0);
 
-  // Shrink the canvas until every tree fits the panel, but never past the point
-  // where the labels stop reading — past the floor the panel scrolls instead.
-  // `contentRect` is already the padding-excluded inner width.
-  const fitScale = totalWidth > 0 && panelWidth > 0
-    ? clamp(MIN_FIT_SCALE, panelWidth / totalWidth, 1)
-    : 1;
-  // Zoom multiplies the fit scale and changes the layout size, not a transform,
-  // so the panel keeps scrolling natively — which is the only way a phone gets
-  // real momentum. Capped at 1 so nothing is ever scaled up past its own
-  // resolution, which is what makes text look soft.
-  const scale = clamp(MIN_FIT_SCALE, fitScale * zoom, 1);
-  const fitsWithoutScrolling = totalWidth * scale <= panelWidth + 0.5;
-  const canZoomIn = scale < 0.999;
-  const canZoomOut = zoom > 1.001;
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
         <span>
-          {trees.length} {trees.length === 1 ? 'tree' : 'trees'} side by side · {peopleShown} {peopleShown === 1 ? 'person' : 'people'} shown
+          {trees.length} {trees.length === 1 ? 'tree' : 'trees'} · {peopleShown} {peopleShown === 1 ? 'person' : 'people'} shown
         </span>
-        <span className="hidden sm:inline">
-          {fitsWithoutScrolling
-            ? `Every tree fits at ${Math.round(scale * 100)}%`
-            : 'Scroll sideways to move between trees'}
-        </span>
-        {/* Same zoom controls as the detail chart, but these change the layout
-            size rather than a transform, so the panel keeps its native
-            momentum. Desktop fits to the panel, so they are hidden at sm+. */}
-        <div data-chart-control className="flex items-center gap-1 sm:hidden">
-          <button
-            type="button"
-            className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"
-            onClick={() => setZoom((current) => Math.max(1, current / ZOOM_STEP))}
-            disabled={!canZoomOut}
-            aria-label="Zoom out of the overview"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"
-            onClick={() => setZoom(1)}
-            aria-label="Fit every tree in view"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"
-            onClick={() => setZoom((current) => Math.min(2, current * ZOOM_STEP))}
-            disabled={!canZoomIn}
-            aria-label="Zoom into the overview"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-        </div>
+        <span>Tap a card to open that tree</span>
       </div>
 
-      <div
-        ref={scrollerRef}
-        className="snap-x snap-proximity overscroll-x-contain overflow-x-auto rounded-app-md border border-border bg-surface-muted/40 p-4"
-      >
-        {/* The outer box is the layout size, so zooming grows it and the native
-            scroller knows how far it can travel. The inner box does the scaling. */}
-        <div
-          className="relative mx-auto"
-          style={{
-            width: totalWidth * scale,
-            height: canvasHeight * scale,
-          }}
-        >
-          <div
-            className="relative origin-top-left"
-            style={{ width: totalWidth, height: canvasHeight, transform: `scale(${scale})` }}
+      {blocks.map((block) => (
+        <TreePanel key={block.tree.id} block={block} onOpenTree={onOpenTree}>
+          <svg
+            className="pointer-events-none absolute left-0 top-0"
+            width={block.width}
+            height={block.height}
+            aria-hidden="true"
           >
-            {blocks.slice(1).map((block) => (
-              <span
-                key={`divider-${block.tree.id}`}
-                aria-hidden="true"
-                className="absolute top-0 w-px bg-border/70"
-                style={{ left: block.left - TREE_GAP / 2, height: canvasHeight }}
+            {block.layout.edges.map((edge) => {
+              const midY = edge.parentBottom + V_GAP / 2;
+              return (
+                <path
+                  key={edge.id}
+                  d={`M ${edge.parentX} ${edge.parentBottom} L ${edge.parentX} ${midY} L ${edge.childX} ${midY} L ${edge.childX} ${edge.childTop}`}
+                  fill="none"
+                  stroke="var(--color-primary-muted)"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </svg>
+
+          {block.layout.nodes.length === 0 ? (
+            <div
+              className="flex items-center justify-center rounded-app-md border border-dashed border-border px-3 text-center text-[11px] text-subtle"
+              style={{ height: EMPTY_TREE_HEIGHT }}
+            >
+              No one placed yet
+            </div>
+          ) : (
+            block.layout.nodes.map((positioned) => (
+              <OverviewNode
+                key={positioned.id}
+                positioned={positioned}
+                treeName={block.tree.name}
+                nodeWidth={block.nodeWidth}
+                duplicateTreeCount={duplicateTreeCounts.get(refKeyOf(positioned.node)) ?? 1}
+                isCollapsed={collapsedIds.has(positioned.node.id)}
+                onToggleCollapse={onToggleCollapse}
               />
-            ))}
-
-            {blocks.map((block) => (
-              <div key={block.tree.id} className="absolute top-0 snap-start" style={{ left: block.left, width: block.width }}>
-                <TreeHeader block={block} onOpenTree={onOpenTree} />
-
-                <div className="relative" style={{ width: block.width, height: maxContentHeight }}>
-                  {block.layout.nodes.length === 0 ? (
-                    <div
-                      className="flex items-center justify-center rounded-app-md border border-dashed border-border px-3 text-center text-[11px] text-subtle"
-                      style={{ height: EMPTY_TREE_HEIGHT }}
-                    >
-                      No one placed yet
-                    </div>
-                  ) : (
-                    <>
-                      <svg
-                        className="pointer-events-none absolute left-0 top-0"
-                        width={block.width}
-                        height={block.layout.height}
-                        aria-hidden="true"
-                      >
-                        {block.layout.edges.map((edge) => {
-                          const midY = edge.parentBottom + V_GAP / 2;
-                          return (
-                            <path
-                              key={edge.id}
-                              d={`M ${edge.parentX} ${edge.parentBottom} L ${edge.parentX} ${midY} L ${edge.childX} ${midY} L ${edge.childX} ${edge.childTop}`}
-                              fill="none"
-                              stroke="var(--color-primary-muted)"
-                              strokeWidth={1.5}
-                              strokeLinecap="round"
-                            />
-                          );
-                        })}
-                      </svg>
-
-                      {block.layout.nodes.map((positioned) => (
-                        <OverviewNode
-                          key={positioned.id}
-                          positioned={positioned}
-                          treeName={block.tree.name}
-                          nodeWidth={block.nodeWidth}
-                          duplicateTreeCount={duplicateTreeCounts.get(refKeyOf(positioned.node)) ?? 1}
-                          isActive={activeNodeId === positioned.node.id}
-                          isCollapsed={collapsedIds.has(positioned.node.id)}
-                          onOpen={onOpenNode}
-                          onToggleCollapse={onToggleCollapse}
-                        />
-                      ))}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            ))
+          )}
+        </TreePanel>
+      ))}
     </div>
   );
 };

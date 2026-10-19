@@ -242,7 +242,7 @@ const FullScreenTreeSheet: React.FC<{
 }> = ({ layout, props, anchorX, onClose, onJump }) => {
   const viewport = useChartViewport({ width: layout.width, height: layout.height }, { anchorX, fitHeight: true });
   const {
-    canZoomIn, canZoomOut, zoomIn, zoomOut, fit, centerOn,
+    canZoomIn, canZoomOut, zoomIn, zoomOut, setScale, fit, centerOn, scale,
   } = viewport;
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
@@ -296,6 +296,16 @@ const FullScreenTreeSheet: React.FC<{
           >
             <ZoomOut className="h-4 w-4" />
           </button>
+          <input
+            type="range"
+            min={0.1}
+            max={2.5}
+            step={0.01}
+            value={scale}
+            onChange={(e) => setScale(parseFloat(e.target.value))}
+            className="w-20"
+            aria-label="Zoom level"
+          />
           <button
             type="button"
             className="app-icon-button size-9 border border-border bg-surface shadow-app-sm"

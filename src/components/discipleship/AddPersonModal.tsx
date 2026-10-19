@@ -140,14 +140,6 @@ export const AddPersonModal: React.FC<AddPersonModalProps> = ({
     }
   }, [treeId, currentUserId, debouncedTerm, membersCursor, contactsCursor, loading, hasMore]);
 
-  // Focus search input on open
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (isOpen) {
-      searchInputRef.current?.focus();
-    }
-  }, [isOpen]);
-
   // Reset on close
   useEffect(() => {
     if (!isOpen) {
@@ -215,7 +207,6 @@ export const AddPersonModal: React.FC<AddPersonModalProps> = ({
           <span className="sr-only">Search people</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
           <input
-            ref={searchInputRef}
             className="app-input pl-9"
             placeholder="Search people…"
             value={searchTerm}

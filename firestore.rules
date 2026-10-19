@@ -379,9 +379,11 @@ service cloud.firestore {
           (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&
         request.resource.data.createdByUid == request.auth.uid &&
         request.resource.data.createdByName is string;
-      allow update: if isOrganizer() &&
+      // Renaming or deleting a tree rewrites everyone's view of it, so these are
+      // admin-only even though creating one is open to organizers.
+      allow update: if isAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'updatedAt']);
-      allow delete: if isOrganizer();
+      allow delete: if isAdmin();
     }
 
     match /discipleshipNodes/{nodeId} {

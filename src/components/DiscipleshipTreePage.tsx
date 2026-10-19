@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, LayoutGrid, ListTree, Loader2, Network, Plus, Trash2, X } from 'lucide-react';
-import { addNode, createTree, deleteTree, moveNode, removeNodeWithChildren, type TreeCandidate } from '../services/discipleshipService';
+import { ArrowLeft, ChevronRight, LayoutGrid, ListTree, Loader2, Network, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { addNode, createTree, deleteTree, moveNode, removeNodeWithChildren, updateTree, type TreeCandidate } from '../services/discipleshipService';
 import { useDiscipleshipTree, type TreeOverviewStats } from '../hooks/useDiscipleshipTree';
 import { DiscipleshipTreeView } from './discipleship/DiscipleshipTreeView';
 import { DiscipleshipTreeChart } from './discipleship/DiscipleshipTreeChart';
@@ -106,8 +106,17 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
   const [newTreeName, setNewTreeName] = useState('');
   const [newTreeDescription, setNewTreeDescription] = useState('');
   const [creating, setCreating] = useState(false);
+
+  /** Tree whose card is showing the edit form, if any. */
+  const [editingTreeId, setEditingTreeId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  /** Editing and deleting a tree rewrites everyone's view of it, so admin only. */
+  const canManageTrees = user.role === 'admin';
 
   const movingNode = useMemo(
     () => (movingNodeId ? nodeById.get(movingNodeId) ?? null : null),
@@ -236,13 +245,40 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
     }
   };
 
+  const startEditTree = (tree: DiscipleshipTree) => {
+    if (!canManageTrees) return;
+    setEditingTreeId(tree.id);
+    setEditName(tree.name);
+    setEditDescription(tree.description ?? '');
+    setActionError(null);
+  };
+
+  const cancelEditTree = () => {
+    setEditingTreeId(null);
+    setEditName('');
+    setEditDescription('');
+  };
+
+  const handleSaveTree = async () => {
+    if (!editingTreeId || !canManageTrees) return;
+    const saved = await runAction(
+      () => updateTree(editingTreeId, { name: editName, description: editDescription }),
+      'Unable to save these changes.',
+    );
+    if (saved) cancelEditTree();
+  };
+
   const handleDeleteTree = async (tree: DiscipleshipTree) => {
+    if (!canManageTrees) return;
     const confirmed = window.confirm(
       `Delete "${tree.name}" and all of its placement data?\n\nMember and contact records are not deleted — only this tree layout.`,
     );
     if (!confirmed) return;
     const deleted = await runAction(() => deleteTree(tree.id), 'Unable to delete this tree.');
-    if (deleted) pruneMapCollapsed(collectNodeIds(forestByTree.get(tree.id) ?? []));
+    if (deleted) {
+      pruneMapCollapsed(collectNodeIds(forestByTree.get(tree.id) ?? []));
+      if (editingTreeId === tree.id) cancelEditTree();
+    }
   };
 
   const handleAddCandidate = async (candidate: TreeCandidate) => {
@@ -437,46 +473,87 @@ export const DiscipleshipTreePage: React.FC<DiscipleshipTreePageProps> = ({ user
                 duplicateTreeCounts={duplicateTreeCounts}
                 collapsedIds={mapCollapsedIds}
                 onToggleCollapse={toggleMapCollapsed}
-                activeNodeId={profileNode?.id ?? null}
                 onOpenTree={(treeId) => openTree(treeId)}
-                onOpenNode={(node) => setProfileNode(node)}
               />
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2">
-                {trees.map((tree) => (
-                  <li key={tree.id} className="app-panel flex flex-col gap-3 p-4">
-                    <button type="button" className="flex items-start justify-between gap-3 text-left" onClick={() => openTree(tree.id)}>
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-2 text-base font-bold text-text">
-                          <Network className="h-4 w-4 shrink-0 text-primary" />
-                          <span className="truncate">{tree.name}</span>
-                        </span>
-                        {tree.description && <span className="mt-1 block text-sm text-muted">{tree.description}</span>}
-                        <span className="mt-1 block text-xs text-muted">
-                          {(() => {
-                            const stats = overviewByTree.get(tree.id);
-                            const total = stats?.total ?? 0;
-                            const roots = stats?.rootCount ?? 0;
-                            const members = stats?.memberCount ?? 0;
-                            const contacts = stats?.contactCount ?? 0;
-                            const levels = (stats?.maxDepth ?? -1) + 1;
-                            return `${total} ${total === 1 ? 'person' : 'people'} · ${roots} root${roots === 1 ? '' : 's'} · ${members} members / ${contacts} contacts · ${levels} level${levels === 1 ? '' : 's'}`;
-                          })()}
-                          {/* {tree.createdByName ? ` · by ${tree.createdByName}` : ''} */}
-                        </span>
-                      </span>
-                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
-                    </button>
-                    {/* Kept outside the open button: a button may not nest inside another button. */}
-                    <RootsPreview stats={overviewByTree.get(tree.id)} onOpen={(nodeId) => openTree(tree.id, nodeId)} />
-                    <div className="flex justify-end">
-                      <button type="button" className="app-button-text hover:text-error" onClick={() => void handleDeleteTree(tree)} disabled={busy}>
-                        <Trash2 className="h-4 w-4" />
-                        Delete tree
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                {trees.map((tree) => {
+                  const isEditing = editingTreeId === tree.id;
+                  return (
+                    <li key={tree.id} className="app-panel flex flex-col gap-3 p-4">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="app-label" htmlFor={`edit-tree-name-${tree.id}`}>Tree name</label>
+                            <input
+                              id={`edit-tree-name-${tree.id}`}
+                              className="app-input"
+                              value={editName}
+                              maxLength={80}
+                              onChange={(event) => setEditName(event.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="app-label" htmlFor={`edit-tree-description-${tree.id}`}>Description (optional)</label>
+                            <input
+                              id={`edit-tree-description-${tree.id}`}
+                              className="app-input"
+                              value={editDescription}
+                              maxLength={500}
+                              onChange={(event) => setEditDescription(event.target.value)}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                            <button type="button" className="app-button-secondary" onClick={cancelEditTree} disabled={busy}>Cancel</button>
+                            <button type="button" className="app-button-primary" onClick={() => void handleSaveTree()} disabled={busy || !editName.trim()}>
+                              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                              {busy ? 'Saving...' : 'Save changes'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <button type="button" className="flex items-start justify-between gap-3 text-left" onClick={() => openTree(tree.id)}>
+                            <span className="min-w-0">
+                              <span className="flex items-center gap-2 text-base font-bold text-text">
+                                <Network className="h-4 w-4 shrink-0 text-primary" />
+                                <span className="truncate">{tree.name}</span>
+                              </span>
+                              {tree.description && <span className="mt-1 block text-sm text-muted">{tree.description}</span>}
+                              <span className="mt-1 block text-xs text-muted">
+                                {(() => {
+                                  const stats = overviewByTree.get(tree.id);
+                                  const total = stats?.total ?? 0;
+                                  const roots = stats?.rootCount ?? 0;
+                                  const members = stats?.memberCount ?? 0;
+                                  const contacts = stats?.contactCount ?? 0;
+                                  const levels = (stats?.maxDepth ?? -1) + 1;
+                                  return `${total} ${total === 1 ? 'person' : 'people'} · ${roots} root${roots === 1 ? '' : 's'} · ${members} members / ${contacts} contacts · ${levels} level${levels === 1 ? '' : 's'}`;
+                                })()}
+                                {/* {tree.createdByName ? ` · by ${tree.createdByName}` : ''} */}
+                              </span>
+                            </span>
+                            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
+                          </button>
+                          {/* Kept outside the open button: a button may not nest inside another button. */}
+                          <RootsPreview stats={overviewByTree.get(tree.id)} onOpen={(nodeId) => openTree(tree.id, nodeId)} />
+                          {canManageTrees && (
+                            <div className="flex justify-end gap-1">
+                              <button type="button" className="app-button-text" onClick={() => startEditTree(tree)} disabled={busy}>
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                              </button>
+                              <button type="button" className="app-button-text hover:text-error" onClick={() => void handleDeleteTree(tree)} disabled={busy}>
+                                <Trash2 className="h-4 w-4" />
+                                Delete tree
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
