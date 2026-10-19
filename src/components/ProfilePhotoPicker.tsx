@@ -1,11 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Loader2, Trash2 } from 'lucide-react';
+import { PhotoLightbox } from './PhotoLightbox';
+import { ImageCropModal, type CropArea } from './ImageCropModal';
 import {
   ProfilePhotoError,
   removeProfilePhoto,
   uploadProfilePhoto,
   type PhotoUploadProgress,
 } from '../services/profilePhotoService';
+import { processProfileImage, validateProfileImage } from '../utils/imageProcessing';
 
 type PickerSize = 'sm' | 'md';
 
@@ -44,6 +47,9 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
   const [uploading, setUploading] = useState<boolean>(false);
   const [progress, setProgress] = useState<PhotoUploadProgress>({ stage: 'processing', percent: 0 });
   const [imageFailed, setImageFailed] = useState<boolean>(false);
+  const [enlarged, setEnlarged] = useState<boolean>(false);
+  /** The image waiting to be framed by the user. */
+  const [cropSource, setCropSource] = useState<{ file: File; url: string } | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Follow the stored profile so an update from another device, or a revert, is
@@ -55,24 +61,53 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
     setImageFailed(false);
   }
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     // Reset so picking the same file twice in a row still fires a change event.
     event.target.value = '';
     if (!file) return;
 
     setMessage(null);
+
+    // Reject an unusable file before the user spends time framing it.
+    try {
+      validateProfileImage(file);
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'That image cannot be used.',
+      });
+      return;
+    }
+
+    setCropSource({ file, url: URL.createObjectURL(file) });
+  };
+
+  const handleCropCancel = () => {
+    if (cropSource) URL.revokeObjectURL(cropSource.url);
+    setCropSource(null);
+  };
+
+  const handleCropSave = async (crop: CropArea) => {
+    const source = cropSource;
+    setCropSource(null);
+    if (!source) return;
+
     setUploading(true);
     setProgress({ stage: 'processing', percent: 0 });
 
     try {
-      const newPhotoURL = await uploadProfilePhoto(userId, file, localPhotoURL, setProgress);
+      const processed = await processProfileImage(source.file, crop);
+      URL.revokeObjectURL(source.url);
+
+      const newPhotoURL = await uploadProfilePhoto(userId, processed.blob, localPhotoURL, setProgress);
       setLocalPhotoURL(newPhotoURL);
       setImageFailed(false);
       onPhotoChanged?.(newPhotoURL);
       setMessage({ type: 'success', text: 'Profile photo updated.' });
     } catch (error) {
       console.error('Profile photo upload failed:', error);
+      URL.revokeObjectURL(source.url);
       setMessage({
         type: 'error',
         text: error instanceof ProfilePhotoError ? error.message : 'Your photo could not be uploaded. Please try again.',
@@ -113,12 +148,20 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
       <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <div className={`relative shrink-0 ${dimensions.avatar}`}>
           {hasPhoto ? (
-            <img
-              src={localPhotoURL}
-              alt={`${displayName} profile photo`}
-              onError={() => setImageFailed(true)}
-              className={`h-full w-full rounded-full border border-border object-cover shadow-app-sm`}
-            />
+            <button
+              type="button"
+              onClick={() => setEnlarged(true)}
+              aria-label={`Enlarge ${displayName}'s profile photo`}
+              title="Enlarge photo"
+              className="block h-full w-full overflow-hidden rounded-full border border-border shadow-app-sm"
+            >
+              <img
+                src={localPhotoURL}
+                alt={`${displayName} profile photo`}
+                onError={() => setImageFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            </button>
           ) : (
             <div
               className={`flex h-full w-full items-center justify-center rounded-full border border-border bg-primary-soft font-bold text-primary`}
@@ -135,7 +178,12 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(event) => {
+              // The camera badge sits on top of the photo, so keep its click
+              // from also enlarging the photo underneath.
+              event.stopPropagation();
+              fileInputRef.current?.click();
+            }}
             disabled={uploading}
             aria-label={`${changeLabel} for ${displayName}`}
             title={changeLabel}
@@ -199,6 +247,24 @@ export const ProfilePhotoPicker: React.FC<ProfilePhotoPickerProps> = ({
         >
           {message.text}
         </div>
+      )}
+
+      {enlarged && hasPhoto && (
+        <PhotoLightbox
+          src={localPhotoURL}
+          alt={`${displayName} profile photo`}
+          caption={displayName}
+          onClose={() => setEnlarged(false)}
+        />
+      )}
+
+      {cropSource && (
+        <ImageCropModal
+          imageSrc={cropSource.url}
+          imageName={displayName}
+          onCancel={handleCropCancel}
+          onSave={(crop) => void handleCropSave(crop)}
+        />
       )}
     </div>
   );

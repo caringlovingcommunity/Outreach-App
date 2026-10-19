@@ -1,11 +1,11 @@
 import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, storage } from './firebase';
-import { processProfileImage, type ProcessedImage } from '../utils/imageProcessing';
 
 const PHOTO_ROOT = 'profile_photos';
 const PHOTO_FILE_PREFIX = 'avatar';
 const PHOTO_CONTENT_TYPE = 'image/jpeg';
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 export type PhotoUploadStage = 'processing' | 'uploading' | 'saving';
 
@@ -60,15 +60,15 @@ const deletePreviousPhotoObject = async (photoURL: string | undefined | null): P
 };
 
 /**
- * Crops, downscales, and uploads a new profile photo, then points the public
- * profile document at it.
+ * Uploads a prepared profile photo and points the public profile document at it.
  *
- * The Firestore write happens only after the upload succeeds, so a failed upload
- * can never leave the profile pointing at a missing image.
+ * The image is cropped and downsized by the caller, so the upload only carries
+ * a small JPEG. The Firestore write happens only after the upload succeeds, so
+ * a failed upload can never leave the profile pointing at a missing image.
  */
 export const uploadProfilePhoto = async (
   userId: string,
-  file: File,
+  blob: Blob,
   currentPhotoURL: string | undefined | null,
   onProgress?: (progress: PhotoUploadProgress) => void,
 ): Promise<string> => {
@@ -76,22 +76,15 @@ export const uploadProfilePhoto = async (
     throw new ProfilePhotoError('You must be signed in to change your photo.');
   }
 
-  onProgress?.({ stage: 'processing', percent: 0 });
-
-  let processed: ProcessedImage;
-  try {
-    processed = await processProfileImage(file);
-  } catch (error) {
-    throw new ProfilePhotoError(
-      error instanceof Error ? error.message : 'That image could not be processed.',
-    );
+  if (blob.size > MAX_UPLOAD_BYTES) {
+    throw new ProfilePhotoError('That image is too detailed to upload. Try a smaller photo.');
   }
 
   try {
     onProgress?.({ stage: 'uploading', percent: 0 });
 
     const photoRef = buildPhotoRef(userId);
-    const uploadTask = uploadBytesResumable(photoRef, processed.blob, {
+    const uploadTask = uploadBytesResumable(photoRef, blob, {
       contentType: PHOTO_CONTENT_TYPE,
       cacheControl: 'private, max-age=0, no-store',
     });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Edit3, GraduationCap, ImageIcon, Mail, MapPin, Phone, Shield } from 'lucide-react';
 import { getCompleteUserProfile, updateUserProfile, type UpdateProfileInput } from '../services/userService';
 import { ProfilePhotoPicker } from './ProfilePhotoPicker';
+import { PhotoLightbox } from './PhotoLightbox';
 import { UserSearchInput } from '../components/UserSearchInput';
 import { FACULTIES, COLLEGES, YEARS_OF_STUDY, GENDERS } from '../constants/unimasData';
 import type { FacultyCode, CollegeName } from '../types/user';
@@ -22,6 +23,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
   const [saving, setSaving] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(true);
   const [showPhotoEditor, setShowPhotoEditor] = useState<boolean>(false);
+  const [enlargedPhoto, setEnlargedPhoto] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
@@ -152,11 +154,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
           <div className="relative h-32 bg-primary sm:h-44">
             <div className="absolute -bottom-14 left-5 sm:left-8">
               {currentUser.photoURL ? (
-                <img
-                  src={currentUser.photoURL}
-                  alt={currentUser.displayName}
-                  className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md sm:h-32 sm:w-32"
-                />
+                <button
+                  type="button"
+                  onClick={() => setEnlargedPhoto(true)}
+                  aria-label="Enlarge profile photo"
+                  title="Enlarge photo"
+                  className="block h-28 w-28 overflow-hidden rounded-full border-4 border-white object-cover shadow-md sm:h-32 sm:w-32"
+                >
+                  <img
+                    src={currentUser.photoURL}
+                    alt={currentUser.displayName}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
               ) : (
                 <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-surface bg-primary-soft text-3xl font-bold text-primary shadow-app-md sm:h-32 sm:w-32">
                   {displayName.charAt(0).toUpperCase() || 'U'}
@@ -238,6 +248,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onProfil
             )}
           </div>
         </div>
+
+        {enlargedPhoto && currentUser.photoURL && (
+          <PhotoLightbox
+            src={currentUser.photoURL}
+            alt={`${displayName || currentUser.displayName} profile photo`}
+            caption={displayName || currentUser.displayName}
+            onClose={() => setEnlargedPhoto(false)}
+          />
+        )}
       </div>
     );
   }

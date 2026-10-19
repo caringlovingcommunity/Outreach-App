@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useContacts } from "../hooks/useContacts";
 import { UserSearchInput } from "./UserSearchInput";
 import { ContactPhotoPicker } from "./ContactPhotoPicker";
+import { PhotoLightbox } from "./PhotoLightbox";
 import {
   createContact,
   deleteContact,
@@ -147,17 +148,27 @@ const responseLabels: Record<ResponseStatus, string> = {
  * Contact avatar. Uses the uploaded photo when there is one, otherwise the
  * default avatar for the contact's gender.
  */
-const ContactAvatar: React.FC<{ gender: Gender; photoUrl?: string | null }> = ({
-  gender,
-  photoUrl,
-}) => (
+const ContactAvatar: React.FC<{
+  gender: Gender;
+  photoUrl?: string | null;
+  name?: string;
+  onEnlarge?: (photoUrl: string, name: string) => void;
+}> = ({ gender, photoUrl, name, onEnlarge }) => (
   <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-primary-soft">
     {photoUrl ? (
-      <img
-        src={photoUrl}
-        alt=""
-        className="h-full w-full object-cover"
-      />
+      onEnlarge ? (
+        <button
+          type="button"
+          onClick={() => onEnlarge(photoUrl, name || "this contact")}
+          aria-label={`Enlarge ${name || "this contact"}'s photo`}
+          title="Enlarge photo"
+          className="block h-full w-full"
+        >
+          <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+        </button>
+      ) : (
+        <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+      )
     ) : (
       <img
         src={getDefaultContactAvatar(gender)}
@@ -196,9 +207,11 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
    * A photo picked on the form but not uploaded yet. The upload waits for the
    * contact to exist, so a new contact can be given a photo before it is saved.
    */
-  const [pendingPhoto, setPendingPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
   /** The photo the contact had when the form opened, so it can be cleaned up. */
   const [originalPhotoUrl, setOriginalPhotoUrl] = useState<string | null>(null);
+  /** The photo currently shown enlarged, if any. */
+  const [enlargedPhoto, setEnlargedPhoto] = useState<{ url: string; name: string } | null>(null);
 
   /**
    * The photo is managed by whoever has a relationship with the contact: the
@@ -226,9 +239,9 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   };
 
   /** Stage a picked photo. It is uploaded when the contact is saved. */
-  const handlePickPhoto = (file: File) => {
+  const handlePickPhoto = (blob: Blob) => {
     clearPendingPhoto();
-    setPendingPhoto({ file, previewUrl: URL.createObjectURL(file) });
+    setPendingPhoto({ blob, previewUrl: URL.createObjectURL(blob) });
   };
 
   /**
@@ -395,11 +408,29 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
         </button>
         <div className="border-b border-border pb-5">
           <div className="flex items-center gap-4">
-            <img
-              src={selectedContact.photoUrl || getDefaultContactAvatar(selectedContact.gender)}
-              alt=""
-              className="h-16 w-16 shrink-0 rounded-full border border-border bg-primary-soft object-cover"
-            />
+            {selectedContact.photoUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setEnlargedPhoto({ url: selectedContact.photoUrl as string, name: selectedContact.name })
+                }
+                aria-label={`Enlarge ${selectedContact.name}'s photo`}
+                title="Enlarge photo"
+                className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-border bg-primary-soft"
+              >
+                <img
+                  src={selectedContact.photoUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ) : (
+              <img
+                src={getDefaultContactAvatar(selectedContact.gender)}
+                alt=""
+                className="h-16 w-16 shrink-0 rounded-full border border-border bg-primary-soft object-cover"
+              />
+            )}
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">Contact details</p>
               <h1 className="mt-1 text-2xl font-bold text-text">{selectedContact.name}</h1>
@@ -461,6 +492,15 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
             {linking ? "Deleting..." : "Delete Contact"}
           </button>
         )}
+
+        {enlargedPhoto && (
+          <PhotoLightbox
+            src={enlargedPhoto.url}
+            alt={`${enlargedPhoto.name} photo`}
+            caption={enlargedPhoto.name}
+            onClose={() => setEnlargedPhoto(null)}
+          />
+        )}
       </section>
     );
   }
@@ -506,7 +546,7 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
         try {
           const uploaded = await uploadContactPhoto(
             contactId,
-            pendingPhoto.file,
+            pendingPhoto.blob,
             originalPhotoUrl,
           );
           setForm((current) => ({ ...current, photoUrl: uploaded }));
@@ -546,7 +586,12 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
       key={contact.id}
       className="flex items-center gap-3 border-b border-border py-3 last:border-0"
     >
-      <ContactAvatar gender={contact.gender} photoUrl={contact.photoUrl} />
+      <ContactAvatar
+        gender={contact.gender}
+        photoUrl={contact.photoUrl}
+        name={contact.name}
+        onEnlarge={(url, name) => setEnlargedPhoto({ url, name })}
+      />
       <button
         type="button"
         onClick={() => void openDetails(contact)}
@@ -642,6 +687,14 @@ export const MySheepsPage: React.FC<MySheepsPageProps> = ({ onBack, onFormStateC
   return (
     <>
     {formToast}
+    {enlargedPhoto && (
+      <PhotoLightbox
+        src={enlargedPhoto.url}
+        alt={`${enlargedPhoto.name} photo`}
+        caption={enlargedPhoto.name}
+        onClose={() => setEnlargedPhoto(null)}
+      />
+    )}
     <section className={`space-y-6 ${showForm ? "hidden" : ""}`}>
       {onBack && (
         <button type="button" onClick={onBack} className="app-button-text -ml-3">

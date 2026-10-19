@@ -1,13 +1,22 @@
 /**
- * Client-side image preparation for profile photos.
+ * Client-side image preparation for profile and contact photos.
  *
  * Photos are uploaded from phones, where camera captures are frequently 3-8 MB.
  * Every avatar in the app renders at 128px or smaller, so uploading the original
  * file wastes bandwidth and storage for no visible benefit.
  *
- * This module center-crops to a square and downsizes to a fixed edge, producing a
- * small JPEG that any avatar slot can render sharply.
+ * The user frames their own crop in `ImageCropModal`, and this module cuts that
+ * region out and downscales it to a fixed edge, producing a small JPEG that any
+ * avatar slot can render sharply.
  */
+
+/** A rectangle in the source image's own pixels. */
+export interface CropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 const TARGET_EDGE_PX = 512;
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
@@ -99,11 +108,12 @@ const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
   });
 
 /**
- * Center-crops to a square, downscales to 512px, and returns a JPEG blob.
- * Images smaller than the target are left at their original size rather than
- * upscaled, so a small image is not turned blurry.
+ * Cuts the chosen region out of the image and downscales it to a square JPEG.
+ *
+ * Without a crop the image is center-cropped to a square, which is the fallback
+ * for a picture that was never framed by the user.
  */
-export const processProfileImage = async (file: File): Promise<ProcessedImage> => {
+export const processProfileImage = async (file: File, crop?: CropArea): Promise<ProcessedImage> => {
   validateProfileImage(file);
 
   const decoded = await decodeImage(file);
@@ -114,10 +124,26 @@ export const processProfileImage = async (file: File): Promise<ProcessedImage> =
     throw new ImageProcessingError('That image could not be read.');
   }
 
-  const squareEdge = Math.min(sourceWidth, sourceHeight);
-  const cropX = Math.floor((sourceWidth - squareEdge) / 2);
-  const cropY = Math.floor((sourceHeight - squareEdge) / 2);
-  const outputEdge = Math.min(squareEdge, TARGET_EDGE_PX);
+  // Clamp the crop to the image, so a rounded rectangle can never ask for
+  // pixels that are not there.
+  const region = crop
+    ? {
+        x: Math.max(0, Math.min(crop.x, sourceWidth - 1)),
+        y: Math.max(0, Math.min(crop.y, sourceHeight - 1)),
+        width: Math.max(1, Math.min(crop.width, sourceWidth - Math.max(0, Math.min(crop.x, sourceWidth - 1)))),
+        height: Math.max(1, Math.min(crop.height, sourceHeight - Math.max(0, Math.min(crop.y, sourceHeight - 1)))),
+      }
+    : (() => {
+        const edge = Math.min(sourceWidth, sourceHeight);
+        return {
+          x: Math.floor((sourceWidth - edge) / 2),
+          y: Math.floor((sourceHeight - edge) / 2),
+          width: edge,
+          height: edge,
+        };
+      })();
+
+  const outputEdge = Math.max(1, Math.min(Math.round(region.width), TARGET_EDGE_PX));
 
   const canvas = document.createElement('canvas');
   canvas.width = outputEdge;
@@ -131,7 +157,17 @@ export const processProfileImage = async (file: File): Promise<ProcessedImage> =
 
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
-    context.drawImage(decoded.source, cropX, cropY, squareEdge, squareEdge, 0, 0, outputEdge, outputEdge);
+    context.drawImage(
+      decoded.source,
+      region.x,
+      region.y,
+      region.width,
+      region.height,
+      0,
+      0,
+      outputEdge,
+      outputEdge,
+    );
   } finally {
     decoded.release?.();
   }
